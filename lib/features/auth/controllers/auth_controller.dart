@@ -1,13 +1,19 @@
 import 'package:flutter/foundation.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:firebase_messaging/firebase_messaging.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'package:uuid/uuid.dart';
 
 enum AuthStatus { initial, loading, authenticated, unauthenticated, error }
 
 class AuthController extends ChangeNotifier {
   final SupabaseClient _supabase = Supabase.instance.client;
+
+  // ✅ Web Client ID من Google Cloud Console
+  // اذهب إلى: console.cloud.google.com → APIs & Services → Credentials
+  // وانسخ الـ "Client ID" الخاص بـ "Web application"
+  static const String _webClientId =
+      '446326650773-v335rpd56iflvrrk0n1ukd3t64mnf54d.apps.googleusercontent.com';
+
+  late final GoogleSignIn _googleSignIn;
 
   AuthStatus _status = AuthStatus.initial;
   String? _errorMessage;
@@ -19,6 +25,10 @@ class AuthController extends ChangeNotifier {
   bool get isAuthenticated => _status == AuthStatus.authenticated;
 
   AuthController() {
+    _googleSignIn = GoogleSignIn(
+      serverClientId: _webClientId,
+      scopes: ['email', 'profile'],
+    );
     _init();
   }
 
@@ -28,7 +38,6 @@ class AuthController extends ChangeNotifier {
         ? AuthStatus.authenticated
         : AuthStatus.unauthenticated;
 
-    // Listen to auth state changes
     _supabase.auth.onAuthStateChange.listen((data) {
       final event = data.event;
       final session = data.session;
@@ -44,123 +53,47 @@ class AuthController extends ChangeNotifier {
     });
   }
 
-  Future<String> _getDeviceId() async {
-    final prefs = await SharedPreferences.getInstance();
-    String? deviceId = prefs.getString('device_id');
-    if (deviceId == null) {
-      deviceId = const Uuid().v4();
-      await prefs.setString('device_id', deviceId);
-    }
-    return deviceId;
-  }
-
-  /// Sign in with email and password
-  Future<bool> signIn({
-    required String email,
-    required String password,
-  }) async {
+  /// يفتح نافذة اختيار حساب Google داخل التطبيق (بدون متصفح خارجي)
+  /// ثم يسجل الدخول عبر Supabase Authentication
+  Future<bool> signInWithGoogle() async {
     _setLoading();
     try {
-      final response = await _supabase.auth.signInWithPassword(
-        email: email.trim(),
-        password: password,
+      // 1. أظهر نافذة اختيار الحساب من Google داخل التطبيق
+      final googleUser = await _googleSignIn.signIn();
+
+      if (googleUser == null) {
+        // المستخدم أغلق النافذة
+        _setIdle();
+        return false;
+      }
+
+      // 2. احصل على الـ tokens
+      final googleAuth = await googleUser.authentication;
+      final idToken = googleAuth.idToken;
+      final accessToken = googleAuth.accessToken;
+
+      if (idToken == null) {
+        _setError('Error data !!');
+        return false;
+      }
+
+      // 3. سجّل الدخول في Supabase باستخدام Google tokens
+      await _supabase.auth.signInWithIdToken(
+        provider: OAuthProvider.google,
+        idToken: idToken,
+        accessToken: accessToken,
       );
 
-      if (response.user != null) {
-        final currentDeviceId = await _getDeviceId();
-
-        try {
-          final userData = await _supabase
-              .from('users')
-              .select('current_device_id')
-              .eq('id', response.user!.id)
-              .maybeSingle();
-
-          if (userData != null) {
-            final activeDeviceId = userData['current_device_id'] as String?;
-            if (activeDeviceId != null &&
-                activeDeviceId.isNotEmpty &&
-                activeDeviceId != currentDeviceId) {
-              await _supabase.auth.signOut();
-              _setError(
-                  'This account is already logged in on another device. Please log out there first.');
-              return false;
-            }
-          }
-
-          await _supabase.from('users').update({
-            'current_device_id': currentDeviceId,
-          }).eq('id', response.user!.id);
-        } catch (e) {
-          debugPrint('Failed to verify device ID: $e');
-        }
-
-        _currentUser = response.user;
-        _status = AuthStatus.authenticated;
-        notifyListeners();
-        return true;
-      }
-      _setError('Login failed, please check your credentials');
-      return false;
-    } on AuthException catch (e) {
-      _setError(_translateAuthError(e.message));
-      return false;
+      // auth state listener سيتولى تحديث الـ status
+      return true;
     } catch (e) {
-      _setError('An unexpected error occurred, please try again');
+      debugPrint('Google Sign In error: $e');
+      _setError('Error data !!');
       return false;
     }
   }
 
-  /// Create new account
-  Future<bool> signUp({
-    required String email,
-    required String password,
-  }) async {
-    _setLoading();
-    try {
-      final response = await _supabase.auth.signUp(
-        email: email.trim(),
-        password: password,
-      );
-
-      if (response.user != null) {
-        String? fcmToken;
-        try {
-          fcmToken = await FirebaseMessaging.instance.getToken();
-        } catch (e) {
-          debugPrint('Failed to get FCM token: $e');
-        }
-
-        final currentDeviceId = await _getDeviceId();
-
-        try {
-          await _supabase.from('users').insert({
-            'id': response.user!.id,
-            'email': email.trim(),
-            'fcm_token': fcmToken,
-            'current_device_id': currentDeviceId,
-          });
-        } catch (e) {
-          debugPrint('Failed to insert user to Supabase: $e');
-        }
-
-        _currentUser = response.user;
-        _status = AuthStatus.authenticated;
-        notifyListeners();
-        return true;
-      }
-      _setError('Account creation failed, please try again');
-      return false;
-    } on AuthException catch (e) {
-      _setError(_translateAuthError(e.message));
-      return false;
-    } catch (e) {
-      _setError('An unexpected error occurred, please try again');
-      return false;
-    }
-  }
-
-  /// Sign out
+  /// تسجيل الخروج
   Future<void> signOut() async {
     if (_currentUser != null) {
       try {
@@ -171,6 +104,7 @@ class AuthController extends ChangeNotifier {
         debugPrint('Failed to clear device ID: $e');
       }
     }
+    await _googleSignIn.signOut();
     await _supabase.auth.signOut();
     _currentUser = null;
     _status = AuthStatus.unauthenticated;
@@ -188,24 +122,15 @@ class AuthController extends ChangeNotifier {
     notifyListeners();
   }
 
+  void _setIdle() {
+    _status = AuthStatus.unauthenticated;
+    _errorMessage = null;
+    notifyListeners();
+  }
+
   void _setError(String message) {
     _status = AuthStatus.unauthenticated;
     _errorMessage = message;
     notifyListeners();
-  }
-
-  String _translateAuthError(String message) {
-    if (message.contains('Invalid login credentials')) {
-      return 'Invalid email or password';
-    } else if (message.contains('Email not confirmed')) {
-      return 'Please confirm your email first';
-    } else if (message.contains('User already registered')) {
-      return 'This email is already registered';
-    } else if (message.contains('Password should be at least')) {
-      return 'Password must be at least 6 characters long';
-    } else if (message.contains('rate limit')) {
-      return 'Rate limit exceeded, please wait a moment';
-    }
-    return message;
   }
 }

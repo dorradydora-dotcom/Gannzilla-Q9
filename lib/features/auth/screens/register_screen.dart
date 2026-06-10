@@ -1,5 +1,5 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import '../controllers/auth_controller.dart';
@@ -15,13 +15,6 @@ class RegisterScreen extends StatefulWidget {
 
 class _RegisterScreenState extends State<RegisterScreen>
     with SingleTickerProviderStateMixin {
-  final _formKey = GlobalKey<FormState>();
-  final _emailCtrl = TextEditingController();
-  final _passCtrl = TextEditingController();
-  final _confirmPassCtrl = TextEditingController();
-  bool _obscurePass = true;
-  bool _obscureConfirm = true;
-
   late AnimationController _animCtrl;
   late Animation<double> _fadeAnim;
   late Animation<Offset> _slideAnim;
@@ -31,38 +24,17 @@ class _RegisterScreenState extends State<RegisterScreen>
     super.initState();
     _animCtrl = AnimationController(
         duration: const Duration(milliseconds: 800), vsync: this);
-    _fadeAnim = Tween<double>(begin: 0, end: 1).animate(
-        CurvedAnimation(parent: _animCtrl, curve: Curves.easeOut));
-    _slideAnim =
-        Tween<Offset>(begin: const Offset(0, 0.15), end: Offset.zero)
-            .animate(CurvedAnimation(parent: _animCtrl, curve: Curves.easeOut));
+    _fadeAnim = Tween<double>(begin: 0, end: 1)
+        .animate(CurvedAnimation(parent: _animCtrl, curve: Curves.easeOut));
+    _slideAnim = Tween<Offset>(begin: const Offset(0, 0.15), end: Offset.zero)
+        .animate(CurvedAnimation(parent: _animCtrl, curve: Curves.easeOut));
     _animCtrl.forward();
   }
 
   @override
   void dispose() {
     _animCtrl.dispose();
-    _emailCtrl.dispose();
-    _passCtrl.dispose();
-    _confirmPassCtrl.dispose();
     super.dispose();
-  }
-
-  Future<void> _register() async {
-    if (!_formKey.currentState!.validate()) return;
-    final auth = context.read<AuthController>();
-    final success = await auth.signUp(
-      email: _emailCtrl.text,
-      password: _passCtrl.text,
-    );
-    if (!success && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(auth.errorMessage ?? AppStrings.error),
-          backgroundColor: AppColors.error,
-        ),
-      );
-    }
   }
 
   @override
@@ -71,275 +43,155 @@ class _RegisterScreenState extends State<RegisterScreen>
 
     return Scaffold(
       backgroundColor: AppColors.bgDark,
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            colors: [AppColors.bgCard, AppColors.bgDark],
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
+      body: Stack(
+        fit: StackFit.expand,
+        children: [
+          // Full-screen background image
+          FadeTransition(
+            opacity: _fadeAnim,
+            child: Image.asset(
+              'assets/images/gannzilla_logo.png',
+              fit: BoxFit.fill,
+            ),
           ),
-        ),
-        child: SafeArea(
-          child: SingleChildScrollView(
-            padding: EdgeInsets.symmetric(horizontal: 28.w),
-            child: FadeTransition(
-              opacity: _fadeAnim,
-              child: SlideTransition(
-                position: _slideAnim,
-                child: Form(
-                  key: _formKey,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      SizedBox(height: 40.h),
 
-                      // Back Button
-                      Align(
-                        alignment: Alignment.centerLeft,
-                        child: IconButton(
-                          onPressed: () => context.go('/login'),
-                          icon: const Icon(
-                            Icons.arrow_back_ios_new_rounded,
-                            color: AppColors.textSecondary,
+          // Dark gradient overlay
+          Container(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  AppColors.overlayStart,
+                  AppColors.overlayStart,
+                  AppColors.overlayEnd,
+                  AppColors.overlayEnd,
+                ],
+                stops: [0.0, 0.45, 0.72, 1.0],
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+              ),
+            ),
+          ),
+
+          // Bottom Glassmorphism Panel
+          Positioned(
+            bottom: 0,
+            left: 0,
+            right: 0,
+            child: SlideTransition(
+              position: _slideAnim,
+              child: FadeTransition(
+                opacity: _fadeAnim,
+                child: ClipRRect(
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(40.r)),
+                  child: BackdropFilter(
+                    filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+                    child: Container(
+                      padding: EdgeInsets.fromLTRB(32.w, 48.h, 32.w, 56.h),
+                      decoration: BoxDecoration(
+                        color: AppColors.bgDark.withValues(alpha: 0.65),
+                        border: Border(
+                          top: BorderSide(
+                            color: Colors.white.withValues(alpha: 0.15),
+                            width: 1.5,
                           ),
                         ),
                       ),
-
-                      SizedBox(height: 8.h),
-
-                      // Title
-                      Text(
-                        AppStrings.register,
-                        style: TextStyle(
-                          fontSize: 28.sp,
-                          fontWeight: FontWeight.w800,
-                          color: AppColors.textPrimary,
-                        ),
-                      ),
-                      SizedBox(height: 8.h),
-                      Text(
-                        AppStrings.registerSubtitle,
-                        style: TextStyle(
-                          fontSize: 14.sp,
-                          color: AppColors.textSecondary,
-                        ),
-                      ),
-
-                      SizedBox(height: 40.h),
-
-                      // Email
-                      _buildField(
-                        controller: _emailCtrl,
-                        label: AppStrings.email,
-                        hint: 'example@email.com',
-                        icon: Icons.email_outlined,
-                        inputType: TextInputType.emailAddress,
-                        isLtr: true,
-                        validator: (v) {
-                          if (v == null || v.isEmpty) {
-                            return AppStrings.requiredField;
-                          }
-                          if (!v.contains('@')) return AppStrings.invalidEmail;
-                          return null;
-                        },
-                      ),
-
-                      SizedBox(height: 20.h),
-
-                      // Password
-                      _buildLabel(AppStrings.password),
-                      SizedBox(height: 8.h),
-                      TextFormField(
-                        controller: _passCtrl,
-                        obscureText: _obscurePass,
-                        textDirection: TextDirection.ltr,
-                        style: const TextStyle(color: AppColors.textPrimary),
-                        decoration: InputDecoration(
-                          hintText: '••••••••',
-                          prefixIcon: const Icon(Icons.lock_outline),
-                          suffixIcon: IconButton(
-                            icon: Icon(_obscurePass
-                                ? Icons.visibility_outlined
-                                : Icons.visibility_off_outlined),
-                            onPressed: () =>
-                                setState(() => _obscurePass = !_obscurePass),
-                          ),
-                        ),
-                        validator: (v) {
-                          if (v == null || v.isEmpty) {
-                            return AppStrings.requiredField;
-                          }
-                          if (v.length < 8) return AppStrings.passwordTooShort;
-                          return null;
-                        },
-                      ),
-
-                      SizedBox(height: 20.h),
-
-                      // Confirm Password
-                      _buildLabel(AppStrings.confirmPassword),
-                      SizedBox(height: 8.h),
-                      TextFormField(
-                        controller: _confirmPassCtrl,
-                        obscureText: _obscureConfirm,
-                        textDirection: TextDirection.ltr,
-                        style: const TextStyle(color: AppColors.textPrimary),
-                        decoration: InputDecoration(
-                          hintText: '••••••••',
-                          prefixIcon: const Icon(Icons.lock_outline),
-                          suffixIcon: IconButton(
-                            icon: Icon(_obscureConfirm
-                                ? Icons.visibility_outlined
-                                : Icons.visibility_off_outlined),
-                            onPressed: () => setState(
-                                () => _obscureConfirm = !_obscureConfirm),
-                          ),
-                        ),
-                        validator: (v) {
-                          if (v == null || v.isEmpty) {
-                            return AppStrings.requiredField;
-                          }
-                          if (v != _passCtrl.text) {
-                            return AppStrings.passwordsNotMatch;
-                          }
-                          return null;
-                        },
-                      ),
-
-                      SizedBox(height: 36.h),
-
-                      // Register Button
-                      _GradientButton(
-                        label: AppStrings.register,
-                        isLoading: auth.status == AuthStatus.loading,
-                        onPressed: _register,
-                      ),
-
-                      SizedBox(height: 24.h),
-
-                      // Login Link
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
-                          const Text(
-                            AppStrings.alreadyHaveAccount,
-                            style: TextStyle(color: AppColors.textSecondary),
+                          Text(
+                            AppStrings.register,
+                            style: TextStyle(
+                              fontSize: 28.sp,
+                              fontWeight: FontWeight.w900,
+                              color: Colors.white,
+                              letterSpacing: 0.5,
+                            ),
                           ),
-                          TextButton(
-                            onPressed: () => context.go('/login'),
-                            child: const Text(AppStrings.signIn),
+                          SizedBox(height: 12.h),
+                          Text(
+                            AppStrings.registerSubtitle,
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 14.sp,
+                              color: Colors.white70,
+                              height: 1.5,
+                            ),
                           ),
+                          
+                          SizedBox(height: 48.h),
+                          
+                          // Gmail Button
+                          Container(
+                            height: 60.h,
+                            width: double.infinity,
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(16.r),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.3),
+                                  blurRadius: 16.r,
+                                  offset: Offset(0, 8.h),
+                                ),
+                              ],
+                            ),
+                            child: Material(
+                              color: Colors.transparent,
+                              child: InkWell(
+                                borderRadius: BorderRadius.circular(16.r),
+                                onTap: auth.status == AuthStatus.loading
+                                    ? null
+                                    : () async {
+                                        await auth.signInWithGoogle();
+                                      },
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    auth.status == AuthStatus.loading
+                                        ? SizedBox(
+                                            width: 24.r,
+                                            height: 24.r,
+                                            child: const CircularProgressIndicator(
+                                              strokeWidth: 2.5,
+                                              color: AppColors.primary,
+                                            ),
+                                          )
+                                        : Icon(Icons.email_rounded,
+                                            color: Colors.redAccent, size: 28.r),
+                                    SizedBox(width: 12.w),
+                                    Text(
+                                      'Continue with Gmail',
+                                      style: TextStyle(
+                                        color: Colors.black87,
+                                        fontSize: 16.sp,
+                                        fontWeight: FontWeight.w800,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+
+                          if (auth.errorMessage != null) ...[
+                            SizedBox(height: 24.h),
+                            Text(
+                              auth.errorMessage!,
+                              style: TextStyle(color: AppColors.error, fontSize: 14.sp),
+                              textAlign: TextAlign.center,
+                            ),
+                          ],
                         ],
                       ),
-
-                      SizedBox(height: 40.h),
-                    ],
+                    ),
                   ),
                 ),
               ),
             ),
           ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildField({
-    required TextEditingController controller,
-    required String label,
-    required String hint,
-    required IconData icon,
-    TextInputType inputType = TextInputType.text,
-    bool isLtr = false,
-    String? Function(String?)? validator,
-  }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _buildLabel(label),
-        SizedBox(height: 8.h),
-        TextFormField(
-          controller: controller,
-          keyboardType: inputType,
-          textDirection: isLtr ? TextDirection.ltr : null,
-          style: const TextStyle(color: AppColors.textPrimary),
-          decoration: InputDecoration(
-            hintText: hint,
-            prefixIcon: Icon(icon),
-          ),
-          validator: validator,
-        ),
-      ],
-    );
-  }
-
-  Widget _buildLabel(String text) {
-    return Align(
-      alignment: Alignment.centerLeft,
-      child: Text(
-        text,
-        style: TextStyle(
-          color: AppColors.textSecondary,
-          fontSize: 14.sp,
-          fontWeight: FontWeight.w600,
-        ),
-      ),
-    );
-  }
-}
-
-// ─── Gradient Button ──────────────────────────────────────
-class _GradientButton extends StatelessWidget {
-  final String label;
-  final bool isLoading;
-  final VoidCallback onPressed;
-
-  const _GradientButton({
-    required this.label,
-    required this.isLoading,
-    required this.onPressed,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      height: 56.h,
-      width: double.infinity,
-      decoration: BoxDecoration(
-        gradient: AppColors.primaryGradient,
-        borderRadius: BorderRadius.circular(14.r),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.primary.withValues(alpha: 0.4),
-            blurRadius: 16.r,
-            offset: Offset(0, 6.h),
-          ),
         ],
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(14.r),
-          onTap: isLoading ? null : onPressed,
-          child: Center(
-            child: isLoading
-                ? SizedBox(
-                    width: 24.r,
-                    height: 24.r,
-                    child: const CircularProgressIndicator(
-                        strokeWidth: 2.5, color: Colors.white),
-                  )
-                : Text(
-                    label,
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 16.sp,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 0.5.sp,
-                    ),
-                  ),
-          ),
-        ),
       ),
     );
   }

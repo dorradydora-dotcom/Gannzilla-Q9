@@ -119,7 +119,7 @@ class _SplashScreenState extends State<SplashScreen>
     if (auth.isAuthenticated) {
       context.go('/home');
     } else {
-      context.go('/login');
+      context.go('/register');
     }
   }
 
@@ -141,7 +141,7 @@ class _SplashScreenState extends State<SplashScreen>
           FadeTransition(
             opacity: _logoOpacity,
             child: Image.asset('assets/images/gannzilla_logo.png',
-                fit: BoxFit.cover),
+                fit: BoxFit.fill),
           ),
 
           // ── Dark gradient overlay (top → transparent → dark bottom) ───

@@ -54,4 +54,10 @@ class AppStrings {
 
   // General
   static const String error = 'An error occurred';
+
+  // Exit Confirmation
+  static const String exitTitle = 'Confirm Exit';
+  static const String exitContent = 'Are you sure you want to exit the app?';
+  static const String exitCancel = 'Cancel';
+  static const String exitConfirm = 'Exit';
 }
