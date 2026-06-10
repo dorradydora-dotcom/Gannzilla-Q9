@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 import '../controllers/auth_controller.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_strings.dart';
+import '../../../core/widgets/gannzilla_text.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -77,15 +79,11 @@ class _LoginScreenState extends State<LoginScreen>
       backgroundColor: AppColors.bgDark,
       body: Container(
         decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            colors: [Color(0xFF0D0D0D), Color(0xFF1A1A2E)],
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-          ),
+          gradient: AppColors.bgGradient,
         ),
         child: SafeArea(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 28),
+            padding: EdgeInsets.symmetric(horizontal: 28.w),
             child: FadeTransition(
               opacity: _fadeAnim,
               child: SlideTransition(
@@ -95,12 +93,12 @@ class _LoginScreenState extends State<LoginScreen>
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
-                      const SizedBox(height: 60),
+                      SizedBox(height: 60.h),
 
                       // Logo
                       Container(
-                        width: 80,
-                        height: 80,
+                        width: 80.r,
+                        height: 80.r,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
                           gradient: const RadialGradient(
@@ -109,48 +107,39 @@ class _LoginScreenState extends State<LoginScreen>
                           boxShadow: [
                             BoxShadow(
                               color: AppColors.primary.withValues(alpha: 0.4),
-                              blurRadius: 24,
-                              spreadRadius: 4,
+                              blurRadius: 24.r,
+                              spreadRadius: 4.r,
                             ),
                           ],
                         ),
-                        child: const Icon(
+                        child: Icon(
                           Icons.bolt_rounded,
                           color: Colors.white,
-                          size: 44,
+                          size: 44.r,
                         ),
                       ),
 
-                      const SizedBox(height: 24),
+                      SizedBox(height: 24.h),
 
-                      ShaderMask(
-                        shaderCallback: (b) =>
-                            AppColors.primaryGradient.createShader(b),
-                        child: const Text(
-                          'Gannzilla',
-                          style: TextStyle(
-                            fontSize: 34,
-                            fontWeight: FontWeight.w900,
-                            color: Colors.white,
-                            letterSpacing: 1.5,
-                          ),
-                        ),
+                      GannZillaText(
+                        fontSize: 34,
+                        letterSpacing: 1.5,
                       ),
 
-                      const SizedBox(height: 8),
-                      const Text(
+                      SizedBox(height: 8.h),
+                      Text(
                         AppStrings.login,
                         style: TextStyle(
-                          fontSize: 16,
+                          fontSize: 16.sp,
                           color: AppColors.textSecondary,
                         ),
                       ),
 
-                      const SizedBox(height: 48),
+                      SizedBox(height: 48.h),
 
                       // Email Field
                       _buildLabel(AppStrings.email),
-                      const SizedBox(height: 8),
+                      SizedBox(height: 8.h),
                       TextFormField(
                         controller: _emailCtrl,
                         keyboardType: TextInputType.emailAddress,
@@ -171,11 +160,11 @@ class _LoginScreenState extends State<LoginScreen>
                         },
                       ),
 
-                      const SizedBox(height: 20),
+                      SizedBox(height: 20.h),
 
                       // Password Field
                       _buildLabel(AppStrings.password),
-                      const SizedBox(height: 8),
+                      SizedBox(height: 8.h),
                       TextFormField(
                         controller: _passCtrl,
                         obscureText: _obscurePassword,
@@ -205,7 +194,7 @@ class _LoginScreenState extends State<LoginScreen>
                         },
                       ),
 
-                      const SizedBox(height: 12),
+                      SizedBox(height: 12.h),
 
                       // Forgot Password
                       Align(
@@ -216,7 +205,7 @@ class _LoginScreenState extends State<LoginScreen>
                         ),
                       ),
 
-                      const SizedBox(height: 28),
+                      SizedBox(height: 28.h),
 
                       // Login Button
                       _GradientButton(
@@ -225,25 +214,25 @@ class _LoginScreenState extends State<LoginScreen>
                         onPressed: _login,
                       ),
 
-                      const SizedBox(height: 24),
+                      SizedBox(height: 24.h),
 
                       // Divider
                       Row(
                         children: [
                           const Expanded(child: Divider(color: AppColors.textHint)),
                           Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 12),
+                            padding: EdgeInsets.symmetric(horizontal: 12.w),
                             child: Text(
                               'OR',
-                              style: const TextStyle(
-                                  color: AppColors.textHint, fontSize: 13),
+                              style: TextStyle(
+                                  color: AppColors.textHint, fontSize: 13.sp),
                             ),
                           ),
                           const Expanded(child: Divider(color: AppColors.textHint)),
                         ],
                       ),
 
-                      const SizedBox(height: 24),
+                      SizedBox(height: 24.h),
 
                       // Register Link
                       Row(
@@ -260,7 +249,7 @@ class _LoginScreenState extends State<LoginScreen>
                         ],
                       ),
 
-                      const SizedBox(height: 40),
+                      SizedBox(height: 40.h),
                     ],
                   ),
                 ),
@@ -277,9 +266,9 @@ class _LoginScreenState extends State<LoginScreen>
       alignment: Alignment.centerLeft,
       child: Text(
         text,
-        style: const TextStyle(
+        style: TextStyle(
           color: AppColors.textSecondary,
-          fontSize: 14,
+          fontSize: 14.sp,
           fontWeight: FontWeight.w600,
         ),
       ),
@@ -302,41 +291,41 @@ class _GradientButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 56,
+      height: 56.h,
       width: double.infinity,
       decoration: BoxDecoration(
         gradient: AppColors.primaryGradient,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(14.r),
         boxShadow: [
           BoxShadow(
             color: AppColors.primary.withValues(alpha: 0.4),
-            blurRadius: 16,
-            offset: const Offset(0, 6),
+            blurRadius: 16.r,
+            offset: Offset(0, 6.h),
           ),
         ],
       ),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(14.r),
           onTap: isLoading ? null : onPressed,
           child: Center(
             child: isLoading
-                ? const SizedBox(
-                    width: 24,
-                    height: 24,
-                    child: CircularProgressIndicator(
+                ? SizedBox(
+                    width: 24.r,
+                    height: 24.r,
+                    child: const CircularProgressIndicator(
                       strokeWidth: 2.5,
                       color: Colors.white,
                     ),
                   )
                 : Text(
                     label,
-                    style: const TextStyle(
+                    style: TextStyle(
                       color: Colors.white,
-                      fontSize: 16,
+                      fontSize: 16.sp,
                       fontWeight: FontWeight.w700,
-                      letterSpacing: 0.5,
+                      letterSpacing: 0.5.sp,
                     ),
                   ),
           ),

@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "608926344483",
+    "project_id": "gannzilla-a676b",
+    "storage_bucket": "gannzilla-a676b.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:608926344483:android:6a715809e5ebc65c149896",
+        "android_client_info": {
+          "package_name": "com.gannzilla.gannzilla"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDqJR3Qu70Nd4pbtLL7iAIFCM1mVCmqQjI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

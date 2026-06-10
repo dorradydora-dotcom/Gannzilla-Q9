@@ -142,7 +142,7 @@ class AppTheme {
         elevation: 0,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
-          side: const BorderSide(color: Color(0xFF2A2A4A), width: 1),
+          side: const BorderSide(color: AppColors.borderSubtle, width: 1),
         ),
         margin: const EdgeInsets.symmetric(vertical: 8),
       ),

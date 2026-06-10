@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 import '../controllers/auth_controller.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_strings.dart';
@@ -15,7 +16,6 @@ class RegisterScreen extends StatefulWidget {
 class _RegisterScreenState extends State<RegisterScreen>
     with SingleTickerProviderStateMixin {
   final _formKey = GlobalKey<FormState>();
-  final _nameCtrl = TextEditingController();
   final _emailCtrl = TextEditingController();
   final _passCtrl = TextEditingController();
   final _confirmPassCtrl = TextEditingController();
@@ -42,7 +42,6 @@ class _RegisterScreenState extends State<RegisterScreen>
   @override
   void dispose() {
     _animCtrl.dispose();
-    _nameCtrl.dispose();
     _emailCtrl.dispose();
     _passCtrl.dispose();
     _confirmPassCtrl.dispose();
@@ -55,7 +54,6 @@ class _RegisterScreenState extends State<RegisterScreen>
     final success = await auth.signUp(
       email: _emailCtrl.text,
       password: _passCtrl.text,
-      fullName: _nameCtrl.text,
     );
     if (!success && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -76,14 +74,14 @@ class _RegisterScreenState extends State<RegisterScreen>
       body: Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
-            colors: [Color(0xFF1A1A2E), Color(0xFF0D0D0D)],
+            colors: [AppColors.bgCard, AppColors.bgDark],
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
           ),
         ),
         child: SafeArea(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 28),
+            padding: EdgeInsets.symmetric(horizontal: 28.w),
             child: FadeTransition(
               opacity: _fadeAnim,
               child: SlideTransition(
@@ -93,7 +91,7 @@ class _RegisterScreenState extends State<RegisterScreen>
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
-                      const SizedBox(height: 40),
+                      SizedBox(height: 40.h),
 
                       // Back Button
                       Align(
@@ -107,40 +105,27 @@ class _RegisterScreenState extends State<RegisterScreen>
                         ),
                       ),
 
-                      const SizedBox(height: 8),
+                      SizedBox(height: 8.h),
 
                       // Title
-                      const Text(
+                      Text(
                         AppStrings.register,
                         style: TextStyle(
-                          fontSize: 28,
+                          fontSize: 28.sp,
                           fontWeight: FontWeight.w800,
                           color: AppColors.textPrimary,
                         ),
                       ),
-                      const SizedBox(height: 8),
-                      const Text(
-                        'Enter your details to start',
+                      SizedBox(height: 8.h),
+                      Text(
+                        AppStrings.registerSubtitle,
                         style: TextStyle(
-                          fontSize: 14,
+                          fontSize: 14.sp,
                           color: AppColors.textSecondary,
                         ),
                       ),
 
-                      const SizedBox(height: 40),
-
-                      // Full Name
-                      _buildField(
-                        controller: _nameCtrl,
-                        label: AppStrings.fullName,
-                        hint: 'John Doe',
-                        icon: Icons.person_outline,
-                        validator: (v) => v == null || v.isEmpty
-                            ? AppStrings.requiredField
-                            : null,
-                      ),
-
-                      const SizedBox(height: 20),
+                      SizedBox(height: 40.h),
 
                       // Email
                       _buildField(
@@ -159,11 +144,11 @@ class _RegisterScreenState extends State<RegisterScreen>
                         },
                       ),
 
-                      const SizedBox(height: 20),
+                      SizedBox(height: 20.h),
 
                       // Password
                       _buildLabel(AppStrings.password),
-                      const SizedBox(height: 8),
+                      SizedBox(height: 8.h),
                       TextFormField(
                         controller: _passCtrl,
                         obscureText: _obscurePass,
@@ -189,11 +174,11 @@ class _RegisterScreenState extends State<RegisterScreen>
                         },
                       ),
 
-                      const SizedBox(height: 20),
+                      SizedBox(height: 20.h),
 
                       // Confirm Password
                       _buildLabel(AppStrings.confirmPassword),
-                      const SizedBox(height: 8),
+                      SizedBox(height: 8.h),
                       TextFormField(
                         controller: _confirmPassCtrl,
                         obscureText: _obscureConfirm,
@@ -221,7 +206,7 @@ class _RegisterScreenState extends State<RegisterScreen>
                         },
                       ),
 
-                      const SizedBox(height: 36),
+                      SizedBox(height: 36.h),
 
                       // Register Button
                       _GradientButton(
@@ -230,7 +215,7 @@ class _RegisterScreenState extends State<RegisterScreen>
                         onPressed: _register,
                       ),
 
-                      const SizedBox(height: 24),
+                      SizedBox(height: 24.h),
 
                       // Login Link
                       Row(
@@ -247,7 +232,7 @@ class _RegisterScreenState extends State<RegisterScreen>
                         ],
                       ),
 
-                      const SizedBox(height: 40),
+                      SizedBox(height: 40.h),
                     ],
                   ),
                 ),
@@ -272,7 +257,7 @@ class _RegisterScreenState extends State<RegisterScreen>
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _buildLabel(label),
-        const SizedBox(height: 8),
+        SizedBox(height: 8.h),
         TextFormField(
           controller: controller,
           keyboardType: inputType,
@@ -293,9 +278,9 @@ class _RegisterScreenState extends State<RegisterScreen>
       alignment: Alignment.centerLeft,
       child: Text(
         text,
-        style: const TextStyle(
+        style: TextStyle(
           color: AppColors.textSecondary,
-          fontSize: 14,
+          fontSize: 14.sp,
           fontWeight: FontWeight.w600,
         ),
       ),
@@ -318,39 +303,39 @@ class _GradientButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 56,
+      height: 56.h,
       width: double.infinity,
       decoration: BoxDecoration(
         gradient: AppColors.primaryGradient,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(14.r),
         boxShadow: [
           BoxShadow(
             color: AppColors.primary.withValues(alpha: 0.4),
-            blurRadius: 16,
-            offset: const Offset(0, 6),
+            blurRadius: 16.r,
+            offset: Offset(0, 6.h),
           ),
         ],
       ),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(14.r),
           onTap: isLoading ? null : onPressed,
           child: Center(
             child: isLoading
-                ? const SizedBox(
-                    width: 24,
-                    height: 24,
-                    child: CircularProgressIndicator(
+                ? SizedBox(
+                    width: 24.r,
+                    height: 24.r,
+                    child: const CircularProgressIndicator(
                         strokeWidth: 2.5, color: Colors.white),
                   )
                 : Text(
                     label,
-                    style: const TextStyle(
+                    style: TextStyle(
                       color: Colors.white,
-                      fontSize: 16,
+                      fontSize: 16.sp,
                       fontWeight: FontWeight.w700,
-                      letterSpacing: 0.5,
+                      letterSpacing: 0.5.sp,
                     ),
                   ),
           ),

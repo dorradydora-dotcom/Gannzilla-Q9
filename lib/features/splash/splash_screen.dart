@@ -2,9 +2,11 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 import '../auth/controllers/auth_controller.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/app_strings.dart';
+import '../../core/widgets/gannzilla_progress_bar.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -17,34 +19,28 @@ class _SplashScreenState extends State<SplashScreen>
     with TickerProviderStateMixin {
   late AnimationController _logoController;
   late AnimationController _textController;
-  late AnimationController _glowController;
 
-  late Animation<double> _logoScale;
   late Animation<double> _logoOpacity;
   late Animation<double> _textOpacity;
   late Animation<Offset> _textSlide;
-  late Animation<double> _glowAnimation;
+
+  // Loading status messages
+  String _loadingStatus = AppStrings.splashLoading1;
 
   @override
   void initState() {
     super.initState();
 
-    // Logo Animation
+    // Logo (image fade-in) Animation
     _logoController = AnimationController(
-      duration: const Duration(milliseconds: 900),
+      duration: const Duration(milliseconds: 1200),
       vsync: this,
     );
-    _logoScale = Tween<double>(begin: 0.4, end: 1.0).animate(
-      CurvedAnimation(parent: _logoController, curve: Curves.elasticOut),
-    );
     _logoOpacity = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(
-        parent: _logoController,
-        curve: const Interval(0.0, 0.5, curve: Curves.easeIn),
-      ),
+      CurvedAnimation(parent: _logoController, curve: Curves.easeIn),
     );
 
-    // Text Animation
+    // Text / overlay Animation
     _textController = AnimationController(
       duration: const Duration(milliseconds: 700),
       vsync: this,
@@ -57,25 +53,64 @@ class _SplashScreenState extends State<SplashScreen>
       end: Offset.zero,
     ).animate(CurvedAnimation(parent: _textController, curve: Curves.easeOut));
 
-    // Glow Animation
-    _glowController = AnimationController(
-      duration: const Duration(milliseconds: 1500),
-      vsync: this,
-    )..repeat(reverse: true);
-    _glowAnimation = Tween<double>(begin: 0.4, end: 1.0).animate(
-      CurvedAnimation(parent: _glowController, curve: Curves.easeInOut),
-    );
-
     _startAnimations();
   }
 
   void _startAnimations() async {
+    // 1. Set up minimum visual delay (4.6s) to allow entry animations and loading steps to be read
+    final minDelay = Future.delayed(const Duration(milliseconds: 4600));
+
+    // 2. Set up parallel initialization tasks (session check, caching, etc.)
+    final initTasks = _initializeData();
+
+    // 3. Play entry animations sequentially
     await Future.delayed(const Duration(milliseconds: 300));
+    if (!mounted) return;
     _logoController.forward();
+
     await Future.delayed(const Duration(milliseconds: 500));
+    if (!mounted) return;
     _textController.forward();
-    await Future.delayed(const Duration(milliseconds: 1800));
+
+    // 4. Start the loading status messages sequence
+    _updateStatusSequence();
+
+    // 5. Wait for both animations and initialization tasks to complete
+    await Future.wait([minDelay, initTasks]);
+
+    // 6. Navigate to the next screen
     _navigate();
+  }
+
+  void _updateStatusSequence() async {
+    final steps = [
+      AppStrings.splashLoading1,
+      AppStrings.splashLoading2,
+      AppStrings.splashLoading3,
+      AppStrings.splashLoading4,
+      AppStrings.splashLoading5,
+    ];
+
+    for (var i = 0; i < steps.length; i++) {
+      if (i > 0) {
+        await Future.delayed(const Duration(milliseconds: 900));
+      }
+      if (!mounted) return;
+      setState(() {
+        _loadingStatus = steps[i];
+      });
+    }
+  }
+
+  Future<void> _initializeData() async {
+    try {
+      // Parallel startup tasks (e.g. warming up cache, restoring settings)
+      // Since AuthController automatically initializes on creation, we add a brief pause
+      // as a placeholder for any future asynchronous startup checks
+      await Future.delayed(const Duration(milliseconds: 600));
+    } catch (e) {
+      debugPrint('Initialization error: $e');
+    }
   }
 
   void _navigate() {
@@ -92,7 +127,6 @@ class _SplashScreenState extends State<SplashScreen>
   void dispose() {
     _logoController.dispose();
     _textController.dispose();
-    _glowController.dispose();
     super.dispose();
   }
 
@@ -100,109 +134,93 @@ class _SplashScreenState extends State<SplashScreen>
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.bgDark,
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            colors: [Color(0xFF0D0D0D), Color(0xFF1A1A2E), Color(0xFF0D0D0D)],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
+      body: Stack(
+        fit: StackFit.expand,
+        children: [
+          // ── Full-screen background image ──────────────────────────────
+          FadeTransition(
+            opacity: _logoOpacity,
+            child: Image.asset('assets/images/gannzilla_logo.png',
+                fit: BoxFit.cover),
           ),
-        ),
-        child: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              // Logo with glow
-              AnimatedBuilder(
-                animation: _glowAnimation,
-                builder: (context, child) {
-                  return ScaleTransition(
-                    scale: _logoScale,
-                    child: FadeTransition(
-                      opacity: _logoOpacity,
-                      child: Container(
-                        width: 110,
-                        height: 110,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          gradient: const RadialGradient(
-                            colors: [AppColors.primary, AppColors.primaryDark],
+
+          // ── Dark gradient overlay (top → transparent → dark bottom) ───
+          Container(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  AppColors.overlayStart,
+                  AppColors.overlayStart,
+                  AppColors.overlayEnd,
+                  AppColors.overlayEnd,
+                ],
+                stops: [0.0, 0.45, 0.72, 1.0],
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+              ),
+            ),
+          ),
+
+          // ── Bottom overlay: progress bar + status text ────────────────
+          SafeArea(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                FadeTransition(
+                  opacity: _textOpacity,
+                  child: SlideTransition(
+                    position: _textSlide,
+                    child: Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 32.w),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          GannZillaProgressBar(
+                            duration: const Duration(milliseconds: 3800),
                           ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: AppColors.primary
-                                  .withValues(alpha: 0.6 * _glowAnimation.value),
-                              blurRadius: 40,
-                              spreadRadius: 10,
+                          SizedBox(height: 16.h),
+
+                          // Status message
+                          SizedBox(
+                            height: 22.h,
+                            child: AnimatedSwitcher(
+                              duration: const Duration(milliseconds: 300),
+                              transitionBuilder:
+                                  (Widget child, Animation<double> animation) {
+                                return FadeTransition(
+                                  opacity: animation,
+                                  child: SlideTransition(
+                                    position: Tween<Offset>(
+                                      begin: const Offset(0.0, 0.25),
+                                      end: Offset.zero,
+                                    ).animate(animation),
+                                    child: child,
+                                  ),
+                                );
+                              },
+                              child: Text(
+                                _loadingStatus,
+                                key: ValueKey<String>(_loadingStatus),
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  fontSize: 12.sp,
+                                  color: AppColors.textSecondary,
+                                  fontWeight: FontWeight.w500,
+                                  letterSpacing: 0.4.sp,
+                                ),
+                              ),
                             ),
-                          ],
-                        ),
-                        child: const Icon(
-                          Icons.bolt_rounded,
-                          color: Colors.white,
-                          size: 60,
-                        ),
-                      ),
-                    ),
-                  );
-                },
-              ),
-
-              const SizedBox(height: 28),
-
-              // App Name + Tagline
-              FadeTransition(
-                opacity: _textOpacity,
-                child: SlideTransition(
-                  position: _textSlide,
-                  child: Column(
-                    children: [
-                      ShaderMask(
-                        shaderCallback: (bounds) =>
-                            AppColors.primaryGradient.createShader(bounds),
-                        child: const Text(
-                          'Gannzilla',
-                          style: TextStyle(
-                            fontSize: 42,
-                            fontWeight: FontWeight.w900,
-                            color: Colors.white,
-                            letterSpacing: 2,
                           ),
-                        ),
+                        ],
                       ),
-                      const SizedBox(height: 8),
-                      const Text(
-                        AppStrings.appTagline,
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: AppColors.textSecondary,
-                          letterSpacing: 0.5,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-
-              const SizedBox(height: 80),
-
-              // Loading indicator
-              FadeTransition(
-                opacity: _textOpacity,
-                child: SizedBox(
-                  width: 36,
-                  height: 36,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2.5,
-                    valueColor: AlwaysStoppedAnimation<Color>(
-                      AppColors.primary.withValues(alpha: 0.7),
                     ),
                   ),
                 ),
-              ),
-            ],
+                SizedBox(height: 40.h),
+              ],
+            ),
           ),
-        ),
+        ],
       ),
     );
   }

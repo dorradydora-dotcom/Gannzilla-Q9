@@ -14,7 +14,13 @@ class AppColors {
   // Background
   static const Color bgDark = Color(0xFF0D0D0D);
   static const Color bgCard = Color(0xFF1A1A2E);
-  static const Color bgSurface = Color(0xFF16213E);
+
+  // Borders
+  static const Color borderSubtle = Color(0xFF2A2A4A);
+
+  // Overlay (used in splash screen gradient)
+  static const Color overlayStart = Color(0x00000000);
+  static const Color overlayEnd = Color(0x55000000);
 
   // Text
   static const Color textPrimary = Color(0xFFFFFFFF);
@@ -22,11 +28,9 @@ class AppColors {
   static const Color textHint = Color(0xFF6B6B8A);
 
   // Status
-  static const Color success = Color(0xFF4CAF50);
   static const Color error = Color(0xFFEF5350);
-  static const Color warning = Color(0xFFFF9800);
 
-  // Gradient
+  // Gradients
   static const LinearGradient primaryGradient = LinearGradient(
     colors: [primary, primaryLight],
     begin: Alignment.topLeft,
@@ -39,8 +43,21 @@ class AppColors {
     end: Alignment.bottomCenter,
   );
 
-  static const LinearGradient cardGradient = LinearGradient(
-    colors: [Color(0xFF1A1A2E), Color(0xFF16213E)],
+  // Quick Action Card Gradients
+  static const LinearGradient cryptoGradient = LinearGradient(
+    colors: [Color(0xFFF7931A), Color(0xFFFFB347)],
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+  );
+
+  static const LinearGradient newsGradient = LinearGradient(
+    colors: [Color(0xFF43E97B), Color(0xFF38F9D7)],
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+  );
+
+  static const LinearGradient whaleGradient = LinearGradient(
+    colors: [accent, accentLight],
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
   );

@@ -17,6 +17,6 @@ class AppConfig {
   // ==============================
   // App Info
   // ==============================
-  static const String appName = 'Gannzilla';
+  static const String appName = 'GannZilla';
   static const String appVersion = '1.0.0';
 }

@@ -1,5 +1,8 @@
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:uuid/uuid.dart';
 
 enum AuthStatus { initial, loading, authenticated, unauthenticated, error }
 
@@ -41,6 +44,16 @@ class AuthController extends ChangeNotifier {
     });
   }
 
+  Future<String> _getDeviceId() async {
+    final prefs = await SharedPreferences.getInstance();
+    String? deviceId = prefs.getString('device_id');
+    if (deviceId == null) {
+      deviceId = const Uuid().v4();
+      await prefs.setString('device_id', deviceId);
+    }
+    return deviceId;
+  }
+
   /// Sign in with email and password
   Future<bool> signIn({
     required String email,
@@ -54,6 +67,34 @@ class AuthController extends ChangeNotifier {
       );
 
       if (response.user != null) {
+        final currentDeviceId = await _getDeviceId();
+
+        try {
+          final userData = await _supabase
+              .from('users')
+              .select('current_device_id')
+              .eq('id', response.user!.id)
+              .maybeSingle();
+
+          if (userData != null) {
+            final activeDeviceId = userData['current_device_id'] as String?;
+            if (activeDeviceId != null &&
+                activeDeviceId.isNotEmpty &&
+                activeDeviceId != currentDeviceId) {
+              await _supabase.auth.signOut();
+              _setError(
+                  'This account is already logged in on another device. Please log out there first.');
+              return false;
+            }
+          }
+
+          await _supabase.from('users').update({
+            'current_device_id': currentDeviceId,
+          }).eq('id', response.user!.id);
+        } catch (e) {
+          debugPrint('Failed to verify device ID: $e');
+        }
+
         _currentUser = response.user;
         _status = AuthStatus.authenticated;
         notifyListeners();
@@ -74,17 +115,35 @@ class AuthController extends ChangeNotifier {
   Future<bool> signUp({
     required String email,
     required String password,
-    required String fullName,
   }) async {
     _setLoading();
     try {
       final response = await _supabase.auth.signUp(
         email: email.trim(),
         password: password,
-        data: {'full_name': fullName},
       );
 
       if (response.user != null) {
+        String? fcmToken;
+        try {
+          fcmToken = await FirebaseMessaging.instance.getToken();
+        } catch (e) {
+          debugPrint('Failed to get FCM token: $e');
+        }
+
+        final currentDeviceId = await _getDeviceId();
+
+        try {
+          await _supabase.from('users').insert({
+            'id': response.user!.id,
+            'email': email.trim(),
+            'fcm_token': fcmToken,
+            'current_device_id': currentDeviceId,
+          });
+        } catch (e) {
+          debugPrint('Failed to insert user to Supabase: $e');
+        }
+
         _currentUser = response.user;
         _status = AuthStatus.authenticated;
         notifyListeners();
@@ -101,25 +160,17 @@ class AuthController extends ChangeNotifier {
     }
   }
 
-  /// Send password reset link
-  Future<bool> sendPasswordReset(String email) async {
-    _setLoading();
-    try {
-      await _supabase.auth.resetPasswordForEmail(email.trim());
-      _status = AuthStatus.unauthenticated;
-      notifyListeners();
-      return true;
-    } on AuthException catch (e) {
-      _setError(_translateAuthError(e.message));
-      return false;
-    } catch (e) {
-      _setError('An unexpected error occurred');
-      return false;
-    }
-  }
-
   /// Sign out
   Future<void> signOut() async {
+    if (_currentUser != null) {
+      try {
+        await _supabase.from('users').update({
+          'current_device_id': null,
+        }).eq('id', _currentUser!.id);
+      } catch (e) {
+        debugPrint('Failed to clear device ID: $e');
+      }
+    }
     await _supabase.auth.signOut();
     _currentUser = null;
     _status = AuthStatus.unauthenticated;
