@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:go_router/go_router.dart';
 import 'core/config/app_config.dart';
 import 'core/constants/app_colors.dart';
 import 'core/theme/app_theme.dart';
@@ -46,13 +47,25 @@ Future<void> main() async {
   );
 }
 
-class GannzillaApp extends StatelessWidget {
+class GannzillaApp extends StatefulWidget {
   const GannzillaApp({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    final authController = context.watch<AuthController>();
+  State<GannzillaApp> createState() => _GannzillaAppState();
+}
 
+class _GannzillaAppState extends State<GannzillaApp> {
+  late final GoRouter _router;
+
+  @override
+  void initState() {
+    super.initState();
+    final authController = context.read<AuthController>();
+    _router = AppRouter.router(authController);
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return ScreenUtilInit(
       designSize: const Size(375, 812),
       minTextAdapt: true,
@@ -62,7 +75,7 @@ class GannzillaApp extends StatelessWidget {
           title: AppConfig.appName,
           debugShowCheckedModeBanner: false,
           theme: AppTheme.darkTheme,
-          routerConfig: AppRouter.router(authController),
+          routerConfig: _router,
         );
       },
     );

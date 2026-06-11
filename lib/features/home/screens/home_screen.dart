@@ -25,13 +25,6 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final auth = context.watch<AuthController>();
-    final userName = auth.currentUser?.userMetadata?['full_name']
-            ?.toString()
-            .split(' ')
-            .first ??
-        'User';
-
     return Scaffold(
       backgroundColor: AppColors.bgDark,
       body: Container(
@@ -39,24 +32,24 @@ class _HomeScreenState extends State<HomeScreen> {
           gradient: AppColors.bgGradient,
         ),
         child: SafeArea(
-          child: _buildBody(userName, auth),
+          child: _buildBody(),
         ),
       ),
       bottomNavigationBar: _buildBottomNav(),
     );
   }
 
-  Widget _buildBody(String userName, AuthController auth) {
+  Widget _buildBody() {
     switch (_selectedIndex) {
       case 0:
-        return _HomeTab(userName: userName, auth: auth);
+        return const _HomeTab();
       case 1:
         return const _PlaceholderTab(icon: Icons.search_rounded, label: AppStrings.search);
       case 2:
         return const _PlaceholderTab(
             icon: Icons.notifications_rounded, label: AppStrings.notifications);
       case 3:
-        return _ProfileTab(auth: auth);
+        return const _ProfileTab();
       default:
         return const SizedBox();
     }
@@ -129,13 +122,18 @@ class _HomeScreenState extends State<HomeScreen> {
 
 // ─── Home Tab ─────────────────────────────────────────────
 class _HomeTab extends StatelessWidget {
-  final String userName;
-  final AuthController auth;
-
-  const _HomeTab({required this.userName, required this.auth});
+  const _HomeTab();
 
   @override
   Widget build(BuildContext context) {
+    final userName = context.select<AuthController, String>(
+      (auth) => auth.currentUser?.userMetadata?['full_name']
+              ?.toString()
+              .split(' ')
+              .first ??
+          'User',
+    );
+
     return CustomScrollView(
       slivers: [
         // Header
@@ -390,13 +388,17 @@ class _QuickActionCard extends StatelessWidget {
 
 // ─── Profile Tab ──────────────────────────────────────────
 class _ProfileTab extends StatelessWidget {
-  final AuthController auth;
-  const _ProfileTab({required this.auth});
+  const _ProfileTab();
 
   @override
   Widget build(BuildContext context) {
-    final name = auth.currentUser?.userMetadata?['full_name'] ?? 'User';
-    final email = auth.currentUser?.email ?? '';
+    final auth = context.read<AuthController>();
+    final name = context.select<AuthController, String>(
+      (auth) => auth.currentUser?.userMetadata?['full_name'] ?? 'User',
+    );
+    final email = context.select<AuthController, String>(
+      (auth) => auth.currentUser?.email ?? '',
+    );
 
     return Padding(
       padding: EdgeInsets.all(24.r),

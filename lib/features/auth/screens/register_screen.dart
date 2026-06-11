@@ -39,7 +39,9 @@ class _RegisterScreenState extends State<RegisterScreen>
 
   @override
   Widget build(BuildContext context) {
-    final auth = context.watch<AuthController>();
+    final auth = context.read<AuthController>();
+    final status = context.select<AuthController, AuthStatus>((a) => a.status);
+    final errorMessage = context.select<AuthController, String?>((a) => a.errorMessage);
 
     return Scaffold(
       backgroundColor: AppColors.bgDark,
@@ -141,7 +143,7 @@ class _RegisterScreenState extends State<RegisterScreen>
                               color: Colors.transparent,
                               child: InkWell(
                                 borderRadius: BorderRadius.circular(16.r),
-                                onTap: auth.status == AuthStatus.loading
+                                onTap: status == AuthStatus.loading
                                     ? null
                                     : () async {
                                         await auth.signInWithGoogle();
@@ -149,7 +151,7 @@ class _RegisterScreenState extends State<RegisterScreen>
                                 child: Row(
                                   mainAxisAlignment: MainAxisAlignment.center,
                                   children: [
-                                    auth.status == AuthStatus.loading
+                                    status == AuthStatus.loading
                                         ? SizedBox(
                                             width: 24.r,
                                             height: 24.r,
@@ -175,10 +177,10 @@ class _RegisterScreenState extends State<RegisterScreen>
                             ),
                           ),
 
-                          if (auth.errorMessage != null) ...[
+                          if (errorMessage != null) ...[
                             SizedBox(height: 24.h),
                             Text(
-                              auth.errorMessage!,
+                              errorMessage,
                               style: TextStyle(color: AppColors.error, fontSize: 14.sp),
                               textAlign: TextAlign.center,
                             ),

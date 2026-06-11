@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -15,18 +14,21 @@ class GannZillaProgressBar extends StatefulWidget {
   State<GannZillaProgressBar> createState() => _GannZillaProgressBarState();
 }
 
-class _GannZillaProgressBarState extends State<GannZillaProgressBar> {
-  double _progress = 0.0;
-  Timer? _timer;
+class _GannZillaProgressBarState extends State<GannZillaProgressBar>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
   late List<double> _progressPoints;
-  int _currentStep = 0;
   late int _totalSteps;
 
   @override
   void initState() {
     super.initState();
     _generateRandomProgress();
-    _startLoading();
+    _controller = AnimationController(
+      vsync: this,
+      duration: widget.duration,
+    );
+    _controller.forward();
   }
 
   void _generateRandomProgress() {
@@ -56,94 +58,97 @@ class _GannZillaProgressBarState extends State<GannZillaProgressBar> {
     _progressPoints[_totalSteps - 1] = 1.0; // Ensure 100% on the final step
   }
 
-  void _startLoading() {
-    const interval = Duration(milliseconds: 100);
-    _timer = Timer.periodic(interval, (timer) {
-      if (_currentStep < _totalSteps) {
-        if (mounted) {
-          setState(() {
-            _progress = _progressPoints[_currentStep];
-            _currentStep++;
-          });
-        }
-      } else {
-        _timer?.cancel();
-      }
-    });
+  double _getProgress(double t) {
+    if (t <= 0.0) return 0.0;
+    if (t >= 1.0) return 1.0;
+
+    double exactStep = t * (_totalSteps - 1);
+    int lowerStep = exactStep.floor();
+    int upperStep = exactStep.ceil();
+    double tStep = exactStep - lowerStep;
+
+    double lowerVal = _progressPoints[lowerStep];
+    double upperVal = _progressPoints[upperStep];
+
+    return lowerVal + (upperVal - lowerVal) * tStep;
   }
 
   @override
   void dispose() {
-    _timer?.cancel();
+    _controller.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final percentage = (_progress * 100).round();
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, child) {
+        final progress = _getProgress(_controller.value);
+        final percentage = (progress * 100).round();
 
-    return SizedBox(
-      width: 250.w,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // Track
-          Container(
-            height: 6.h,
-            width: double.infinity,
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.06),
-              borderRadius: BorderRadius.circular(3.r),
-            ),
-            child: Stack(
-              children: [
-                // Glow layer
-                AnimatedContainer(
-                  duration: const Duration(milliseconds: 100),
-                  width: 250.w * _progress,
-                  height: 6.h,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(3.r),
-                    boxShadow: [
-                      BoxShadow(
-                        color: const Color(0xFFFF8C00)
-                            .withValues(alpha: 0.4 * _progress),
-                        blurRadius: 8.r,
-                        spreadRadius: 1.r,
+        return SizedBox(
+          width: 250.w,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Track
+              Container(
+                height: 6.h,
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.06),
+                  borderRadius: BorderRadius.circular(3.r),
+                ),
+                child: Stack(
+                  children: [
+                    // Glow layer
+                    Container(
+                      width: 250.w * progress,
+                      height: 6.h,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(3.r),
+                        boxShadow: [
+                          BoxShadow(
+                            color: const Color(0xFFFF8C00)
+                                .withValues(alpha: 0.4 * progress),
+                            blurRadius: 8.r,
+                            spreadRadius: 1.r,
+                          ),
+                        ],
                       ),
-                    ],
-                  ),
-                ),
-                // Gradient progress bar
-                AnimatedContainer(
-                  duration: const Duration(milliseconds: 100),
-                  width: 250.w * _progress,
-                  height: 6.h,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(3.r),
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFFFF8C00), Color(0xFFFFAB40)],
-                      begin: Alignment.centerLeft,
-                      end: Alignment.centerRight,
                     ),
-                  ),
+                    // Gradient progress bar
+                    Container(
+                      width: 250.w * progress,
+                      height: 6.h,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(3.r),
+                        gradient: const LinearGradient(
+                          colors: [Color(0xFFFF8C00), Color(0xFFFFAB40)],
+                          begin: Alignment.centerLeft,
+                          end: Alignment.centerRight,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-              ],
-            ),
+              ),
+              SizedBox(height: 8.h),
+              // Percentage text
+              Text(
+                '$percentage%',
+                style: TextStyle(
+                  fontSize: 12.sp,
+                  color: const Color(0xFFFF8C00),
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 1.0.sp,
+                ),
+              ),
+            ],
           ),
-          SizedBox(height: 8.h),
-          // Percentage text
-          Text(
-            '$percentage%',
-            style: TextStyle(
-              fontSize: 12.sp,
-              color: const Color(0xFFFF8C00),
-              fontWeight: FontWeight.w800,
-              letterSpacing: 1.0.sp,
-            ),
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 }
