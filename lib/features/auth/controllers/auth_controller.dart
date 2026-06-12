@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -78,17 +79,104 @@ class AuthController extends ChangeNotifier {
       }
 
       // 3. سجّل الدخول في Supabase باستخدام Google tokens
-      await _supabase.auth.signInWithIdToken(
+      final response = await _supabase.auth.signInWithIdToken(
         provider: OAuthProvider.google,
         idToken: idToken,
         accessToken: accessToken,
       );
 
+      final user = response.user;
+      if (user != null) {
+        try {
+          await _supabase.from('users').upsert({
+            'id': user.id,
+            'email': user.email,
+          });
+        } catch (e) {
+          debugPrint('Failed to upsert user in public.users: $e');
+        }
+      }
+
       // auth state listener سيتولى تحديث الـ status
       return true;
+    } on PlatformException catch (e) {
+      debugPrint('Google Sign In PlatformException: ${e.code}, ${e.message}');
+      if (e.code == 'sign_in_failed' && e.message?.contains('10') == true) {
+        _setError('خطأ في إعدادات التطبيق (ApiException 10). تأكد من مطابقة SHA-1 في Firebase والـ Client ID.');
+      } else {
+        _setError(e.message ?? 'فشل تسجيل الدخول مع Google');
+      }
+      return false;
     } catch (e) {
       debugPrint('Google Sign In error: $e');
       _setError('Error data !!');
+      return false;
+    }
+  }
+
+  /// تسجيل الدخول باستخدام البريد الإلكتروني وكلمة المرور
+  Future<bool> signInWithEmail({
+    required String email,
+    required String password,
+  }) async {
+    _setLoading();
+    try {
+      final response = await _supabase.auth.signInWithPassword(
+        email: email,
+        password: password,
+      );
+      if (response.user != null) {
+        _currentUser = response.user;
+        _status = AuthStatus.authenticated;
+        notifyListeners();
+        return true;
+      }
+      _setIdle();
+      return false;
+    } on AuthException catch (e) {
+      debugPrint('Email Sign In error: $e');
+      _setError(e.message);
+      return false;
+    } catch (e) {
+      debugPrint('Email Sign In error: $e');
+      _setError('حدث خطأ غير متوقع');
+      return false;
+    }
+  }
+
+  /// إنشاء حساب جديد باستخدام البريد الإلكتروني وكلمة المرور والاسم الكامل
+  Future<bool> signUpWithEmail({
+    required String email,
+    required String password,
+    required String fullName,
+  }) async {
+    _setLoading();
+    try {
+      final response = await _supabase.auth.signUp(
+        email: email,
+        password: password,
+        data: {'full_name': fullName},
+      );
+      if (response.user != null) {
+        _currentUser = response.user;
+        if (response.session != null) {
+          _status = AuthStatus.authenticated;
+        } else {
+          _status = AuthStatus.unauthenticated;
+          _errorMessage = 'يرجى مراجعة بريدك الإلكتروني لتأكيد الحساب';
+        }
+        notifyListeners();
+        return true;
+      }
+      _setIdle();
+      return false;
+    } on AuthException catch (e) {
+      debugPrint('Email Sign Up error: $e');
+      _setError(e.message);
+      return false;
+    } catch (e) {
+      debugPrint('Email Sign Up error: $e');
+      _setError('حدث خطأ غير متوقع');
       return false;
     }
   }
