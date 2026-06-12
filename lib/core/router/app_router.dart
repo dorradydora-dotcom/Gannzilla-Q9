@@ -8,7 +8,7 @@ import '../widgets/exit_confirmation_wrapper.dart';
 class AppRouter {
   static GoRouter router(AuthController authController) {
     return GoRouter(
-      initialLocation: authController.isAuthenticated ? '/home' : '/splash',
+      initialLocation: '/splash',
       redirect: (context, state) {
         final isAuthenticated = authController.isAuthenticated;
         final isAuthRoute = state.matchedLocation == '/register';

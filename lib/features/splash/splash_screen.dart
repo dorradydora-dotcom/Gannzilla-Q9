@@ -2,7 +2,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
 import '../auth/controllers/auth_controller.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/app_strings.dart';
@@ -148,13 +147,8 @@ class _SplashScreenState extends State<SplashScreen>
           Container(
             decoration: const BoxDecoration(
               gradient: LinearGradient(
-                colors: [
-                  AppColors.overlayStart,
-                  AppColors.overlayStart,
-                  AppColors.overlayEnd,
-                  AppColors.overlayEnd,
-                ],
-                stops: [0.0, 0.45, 0.72, 1.0],
+                colors: [AppColors.overlayEnd, AppColors.overlayStart],
+                stops: [0.0, 1.0],
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
               ),
@@ -171,18 +165,18 @@ class _SplashScreenState extends State<SplashScreen>
                   child: SlideTransition(
                     position: _textSlide,
                     child: Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 32.w),
+                      padding: const EdgeInsets.symmetric(horizontal: 32.0),
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           GannZillaProgressBar(
                             duration: const Duration(milliseconds: 3800),
                           ),
-                          SizedBox(height: 16.h),
+                          const SizedBox(height: 16.0),
 
                           // Status message
                           SizedBox(
-                            height: 22.h,
+                            height: 22.0,
                             child: AnimatedSwitcher(
                               duration: const Duration(milliseconds: 300),
                               transitionBuilder:
@@ -203,10 +197,10 @@ class _SplashScreenState extends State<SplashScreen>
                                 key: ValueKey<String>(_loadingStatus),
                                 textAlign: TextAlign.center,
                                 style: TextStyle(
-                                  fontSize: 12.sp,
+                                  fontSize: 12.0,
                                   color: AppColors.textSecondary,
                                   fontWeight: FontWeight.w500,
-                                  letterSpacing: 0.4.sp,
+                                  letterSpacing: 0.4,
                                 ),
                               ),
                             ),
@@ -216,7 +210,7 @@ class _SplashScreenState extends State<SplashScreen>
                     ),
                   ),
                 ),
-                SizedBox(height: 40.h),
+                const SizedBox(height: 40.0),
               ],
             ),
           ),
