@@ -127,6 +127,7 @@ class _FavouriteTabState extends State<FavouriteTab> {
                     ),
                   )
                 : ListView.separated(
+                    padding: EdgeInsets.only(bottom: 96.h),
                     itemCount: activeFavorites.length,
                     separatorBuilder: (_, __) => SizedBox(height: 12.h),
                     itemBuilder: (context, index) {

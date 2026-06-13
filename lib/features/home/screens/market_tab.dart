@@ -147,6 +147,7 @@ class _MarketTabState extends State<MarketTab> {
           // Market list
           Expanded(
             child: ListView.separated(
+              padding: EdgeInsets.only(bottom: 96.h),
               itemCount: filteredMarkets.length,
               separatorBuilder: (_, __) => SizedBox(height: 12.h),
               itemBuilder: (context, index) {

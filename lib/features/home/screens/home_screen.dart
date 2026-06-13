@@ -50,7 +50,11 @@ class _HomeScreenState extends State<HomeScreen>
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.black,
-      body: SafeArea(child: _buildBody()),
+      extendBody: true,
+      body: SafeArea(
+        bottom: false,
+        child: _buildBody(),
+      ),
       bottomNavigationBar: _buildBottomNav(),
     );
   }
@@ -73,8 +77,13 @@ class _HomeScreenState extends State<HomeScreen>
   }
 
   Widget _buildBottomNav() {
+    final bottomPadding = MediaQuery.paddingOf(context).bottom;
     return Container(
-      margin: EdgeInsets.only(left: 16.w, right: 16.w, bottom: 20.h),
+      margin: EdgeInsets.only(
+        left: 16.w,
+        right: 16.w,
+        bottom: bottomPadding > 0 ? bottomPadding * 0.6 : 8.h,
+      ),
       height: 64.h,
       decoration: BoxDecoration(
         color: AppColors.bgCard,
@@ -103,22 +112,22 @@ class _HomeScreenState extends State<HomeScreen>
                 children: [
                   // Glow dot indicator
                   AnimatedContainer(
-                     duration: const Duration(milliseconds: 300),
-                     width: isSelected ? 16.w : 0,
-                     height: 3.h,
-                     margin: EdgeInsets.only(bottom: 2.h),
-                     decoration: BoxDecoration(
-                       color: AppColors.primary,
-                       borderRadius: BorderRadius.circular(2.r),
-                       boxShadow: isSelected
-                           ? [
-                               BoxShadow(
-                                 color: AppColors.primary.withValues(alpha: 0.7),
-                                 blurRadius: 8.r,
-                               ),
-                             ]
-                           : [],
-                     ),
+                    duration: const Duration(milliseconds: 300),
+                    width: isSelected ? 16.w : 0,
+                    height: 3.h,
+                    margin: EdgeInsets.only(bottom: 2.h),
+                    decoration: BoxDecoration(
+                      color: AppColors.primary,
+                      borderRadius: BorderRadius.circular(2.r),
+                      boxShadow: isSelected
+                          ? [
+                              BoxShadow(
+                                color: AppColors.primary.withValues(alpha: 0.7),
+                                blurRadius: 8.r,
+                              ),
+                            ]
+                          : [],
+                    ),
                   ),
                   Icon(
                     item.icon,

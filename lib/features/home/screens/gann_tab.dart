@@ -79,6 +79,7 @@ class GannTab extends StatelessWidget {
           // Tools list
           Expanded(
             child: ListView.separated(
+              padding: EdgeInsets.only(bottom: 96.h),
               itemCount: tools.length,
               separatorBuilder: (_, __) => SizedBox(height: 14.h),
               itemBuilder: (context, index) {

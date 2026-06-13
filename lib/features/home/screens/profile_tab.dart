@@ -30,7 +30,11 @@ class ProfileTab extends StatelessWidget {
     ];
 
     return SingleChildScrollView(
-      padding: EdgeInsets.symmetric(horizontal: 24.w),
+      padding: EdgeInsets.only(
+        left: 24.w,
+        right: 24.w,
+        bottom: 96.h,
+      ),
       child: Column(
         children: [
           SizedBox(height: 40.h),
