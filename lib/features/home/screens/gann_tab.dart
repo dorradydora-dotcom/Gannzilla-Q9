@@ -9,26 +9,30 @@ class GannTab extends StatelessWidget {
   Widget build(BuildContext context) {
     final tools = [
       {
-        'title': 'Gann Square of 9',
-        'desc': 'Calculate support, resistance, and key turning points using the Square of Nine matrix.',
+        'title': ' Square of 9',
+        'desc':
+            'Calculate support, resistance, and key turning points using the Square of Nine matrix.',
         'icon': Icons.grid_4x4_rounded,
         'gradient': AppColors.cryptoGradient
       },
       {
         'title': 'Gann Fan & Angles',
-        'desc': 'Plot dynamic geometric trendlines based on time-and-price equivalence.',
+        'desc':
+            'Plot dynamic geometric trendlines based on time-and-price equivalence.',
         'icon': Icons.trending_up_rounded,
         'gradient': AppColors.primaryGradient
       },
       {
         'title': 'Gann Hexagon Chart',
-        'desc': 'Discover cyclical time frames and coordinates for major market movements.',
+        'desc':
+            'Discover cyclical time frames and coordinates for major market movements.',
         'icon': Icons.hexagon_outlined,
         'gradient': AppColors.newsGradient
       },
       {
         'title': 'Price-Time Calculator',
-        'desc': 'Align market highs/lows against key astronomical or numeric angles.',
+        'desc':
+            'Align market highs/lows against key astronomical or numeric angles.',
         'icon': Icons.calculate_outlined,
         'gradient': AppColors.whaleGradient
       },
