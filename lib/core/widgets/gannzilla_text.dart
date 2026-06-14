@@ -26,12 +26,20 @@ class GannZillaText extends StatelessWidget {
 
     final gannPart = Text(
       'Gann',
-      style: baseStyle.copyWith(color: Colors.white),
+      style: TextStyle(
+        color: Colors.white,
+        fontWeight: FontWeight.w700,
+        fontSize: 32.sp,
+      ),
     );
 
     final illaPart = Text(
       'illa',
-      style: baseStyle.copyWith(color: Colors.white),
+      style: TextStyle(
+        color: Colors.white,
+        fontWeight: FontWeight.w700,
+        fontSize: 32.sp,
+      ),
     );
 
     return Row(

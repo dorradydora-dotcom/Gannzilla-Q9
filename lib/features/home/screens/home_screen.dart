@@ -49,8 +49,7 @@ class _HomeScreenState extends State<HomeScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.black,
-      extendBody: true,
+      extendBody: false,
       body: SafeArea(
         bottom: false,
         child: _buildBody(),
@@ -80,23 +79,15 @@ class _HomeScreenState extends State<HomeScreen>
     final bottomPadding = MediaQuery.paddingOf(context).bottom;
     return Container(
       margin: EdgeInsets.only(
-        left: 16.w,
-        right: 16.w,
-        bottom: bottomPadding > 0 ? bottomPadding * 0.6 : 8.h,
+        left: 5.w,
+        right: 5.w,
+        bottom: bottomPadding > 0 ? bottomPadding + 4.h : 8.h,
       ),
-      height: 64.h,
+      height: 50.h,
       decoration: BoxDecoration(
-        color: AppColors.bgCard,
-        borderRadius: BorderRadius.circular(24.r),
-        border: Border.all(color: AppColors.borderSubtle, width: 1.w),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.6),
-            blurRadius: 16.r,
-            offset: Offset(0, 8.h),
-          ),
-        ],
-      ),
+          borderRadius: BorderRadius.circular(24.r),
+          border: Border.all(
+              color: const Color.fromARGB(255, 63, 63, 127), width: 1.w)),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: List.generate(_navItems.length, (index) {
@@ -117,12 +108,13 @@ class _HomeScreenState extends State<HomeScreen>
                     height: 3.h,
                     margin: EdgeInsets.only(bottom: 2.h),
                     decoration: BoxDecoration(
-                      color: AppColors.primary,
+                      color: Colors.greenAccent,
                       borderRadius: BorderRadius.circular(2.r),
                       boxShadow: isSelected
                           ? [
                               BoxShadow(
-                                color: AppColors.primary.withValues(alpha: 0.7),
+                                color: AppColors.textPrimary
+                                    .withValues(alpha: 0.7),
                                 blurRadius: 8.r,
                               ),
                             ]
@@ -131,7 +123,7 @@ class _HomeScreenState extends State<HomeScreen>
                   ),
                   Icon(
                     item.icon,
-                    color: isSelected ? AppColors.primary : AppColors.textHint,
+                    color: isSelected ? Colors.white : AppColors.textHint,
                     size: 20.r,
                   ),
                   SizedBox(height: 2.h),
@@ -139,8 +131,7 @@ class _HomeScreenState extends State<HomeScreen>
                     item.label,
                     style: TextStyle(
                       fontSize: 9.sp,
-                      color:
-                          isSelected ? AppColors.primary : AppColors.textHint,
+                      color: isSelected ? Colors.white : AppColors.textHint,
                       fontWeight:
                           isSelected ? FontWeight.w600 : FontWeight.w400,
                     ),

@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:provider/provider.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_strings.dart';
 import '../../../core/widgets/gannzilla_text.dart';
+import '../../auth/controllers/auth_controller.dart';
 
 class HomeTab extends StatelessWidget {
   final Animation<double> glowAnim;
@@ -33,62 +35,138 @@ class HomeTab extends StatelessWidget {
         // ── Header ──────────────────────────────────────
         SliverToBoxAdapter(
           child: Padding(
-            padding: EdgeInsets.fromLTRB(24.w, 24.h, 24.w, 0),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Column(
+            padding: EdgeInsets.fromLTRB(24.w, 10.h, 24.w, 0),
+            child: Consumer<AuthController>(
+              builder: (context, auth, _) {
+                final email = auth.currentUser?.email ?? '';
+                final maskedEmail = _maskEmail(email);
+                return Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      'Dashboard',
-                      style: TextStyle(
-                        fontSize: 22.sp,
-                        fontWeight: FontWeight.w800,
-                        color: AppColors.textPrimary,
-                      ),
+                    // App Logo + copyright
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        GannZillaText(
+                            fontSize: 24,
+                            letterSpacing: 0.5,
+                            isWhiteAndRed: true),
+                        SizedBox(width: 2.w),
+                        // © circle — superscript style
+                        Padding(
+                          padding: EdgeInsets.only(bottom: 9.h),
+                          child: Container(
+                            width: 13.r,
+                            height: 13.r,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: AppColors.textPrimary,
+                                width: 1,
+                              ),
+                            ),
+                            child: FittedBox(
+                              fit: BoxFit.scaleDown,
+                              child: Padding(
+                                padding: EdgeInsets.all(2.r),
+                                child: Text(
+                                  'C',
+                                  style: TextStyle(
+                                    fontSize: 10.sp,
+                                    color: AppColors.textPrimary,
+                                    fontWeight: FontWeight.w700,
+                                    height: 1,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
-                    SizedBox(height: 4.h),
-                    Text(
-                      AppStrings.homeSubtitle,
-                      style: TextStyle(
-                        fontSize: 13.sp,
-                        color: AppColors.textSecondary,
-                      ),
-                    ),
-                  ],
-                ),
-                // Notification bell + avatar
-                Row(
-                  children: [
-                    Container(
-                      width: 40.r,
-                      height: 40.r,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: AppColors.bgCard,
-                        border: Border.all(
-                            color: AppColors.borderSubtle, width: 1.5),
-                      ),
-                      child: Icon(Icons.notifications_outlined,
-                          color: AppColors.textSecondary, size: 20.r),
-                    ),
-                    SizedBox(width: 10.w),
-                    Container(
-                      width: 40.r,
-                      height: 40.r,
-                      decoration: const BoxDecoration(
-                        shape: BoxShape.circle,
-                        gradient: LinearGradient(
-                          colors: [AppColors.primary, AppColors.accent],
+
+                    // Version
+                    Transform.translate(
+                      offset: Offset(0, -3.h),
+                      child: Text(
+                        '   V 1.121 [yakatwa]',
+                        style: TextStyle(
+                          fontSize: 10.sp,
+                          color: Colors.blue,
+                          fontWeight: FontWeight.w400,
+                          letterSpacing: 0.3,
                         ),
                       ),
-                      child:
-                          Icon(Icons.person, color: Colors.white, size: 20.r),
                     ),
+
+                    Row(
+                      children: [
+                        Flexible(
+                          child: Text(
+                            " User : $maskedEmail",
+                            style: TextStyle(
+                              fontSize: 13.sp,
+                              color: AppColors.textHint,
+                              fontWeight: FontWeight.w400,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        SizedBox(width: 8.w),
+                        // Subscription status button
+                        Builder(builder: (context) {
+                          final isSubscribed =
+                              context.watch<AuthController>().isSubscribed;
+                          final color = isSubscribed
+                              ? const Color(0xFF4CAF50)
+                              : AppColors.error;
+                          final label =
+                              isSubscribed ? 'Subscribed ✓' : 'Unsubscribed';
+                          return GestureDetector(
+                            onTap: () {
+                              // TODO: handle subscribe / unsubscribe
+                            },
+                            child: Container(
+                              padding: EdgeInsets.symmetric(
+                                  horizontal: 8.w, vertical: 2.h),
+                              decoration: BoxDecoration(
+                                color: color.withValues(alpha: 0.12),
+                                borderRadius: BorderRadius.circular(20.r),
+                                border: Border.all(
+                                    color: color.withValues(alpha: 0.5),
+                                    width: 0.8),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Container(
+                                    width: 6.r,
+                                    height: 6.r,
+                                    decoration: BoxDecoration(
+                                      color: color,
+                                      shape: BoxShape.circle,
+                                    ),
+                                  ),
+                                  SizedBox(width: 4.w),
+                                  Text(
+                                    label,
+                                    style: TextStyle(
+                                      fontSize: 9.sp,
+                                      fontWeight: FontWeight.w600,
+                                      color: color,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        }),
+                      ],
+                    )
                   ],
-                ),
-              ],
+                );
+              },
             ),
           ),
         ),
@@ -304,7 +382,8 @@ class HomeTab extends StatelessWidget {
 class SectionHeader extends StatelessWidget {
   final String title;
   final String actionLabel;
-  const SectionHeader({super.key, required this.title, required this.actionLabel});
+  const SectionHeader(
+      {super.key, required this.title, required this.actionLabel});
 
   @override
   Widget build(BuildContext context) {
@@ -616,4 +695,12 @@ class WhaleAlertTile extends StatelessWidget {
       ),
     );
   }
+}
+
+// ── Email Masking Helper ───────────────────────────────────
+String _maskEmail(String email) {
+  if (email.isEmpty) return '';
+  // أظهر أول 3 حروف + 5 نجوم + .com
+  final prefix = email.length >= 3 ? email.substring(0, 3) : email;
+  return '$prefix*****.com';
 }

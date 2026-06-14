@@ -8,9 +8,6 @@ enum AuthStatus { initial, loading, authenticated, unauthenticated, error }
 class AuthController extends ChangeNotifier {
   final SupabaseClient _supabase = Supabase.instance.client;
 
-  // ✅ Web Client ID من Google Cloud Console
-  // اذهب إلى: console.cloud.google.com → APIs & Services → Credentials
-  // وانسخ الـ "Client ID" الخاص بـ "Web application"
   static const String _webClientId =
       '446326650773-v335rpd56iflvrrk0n1ukd3t64mnf54d.apps.googleusercontent.com';
 
@@ -19,11 +16,13 @@ class AuthController extends ChangeNotifier {
   AuthStatus _status = AuthStatus.initial;
   String? _errorMessage;
   User? _currentUser;
+  bool _isSubscribed = false;
 
   AuthStatus get status => _status;
   String? get errorMessage => _errorMessage;
   User? get currentUser => _currentUser;
   bool get isAuthenticated => _status == AuthStatus.authenticated;
+  bool get isSubscribed => _isSubscribed;
 
   AuthController() {
     _googleSignIn = GoogleSignIn(
@@ -39,6 +38,10 @@ class AuthController extends ChangeNotifier {
         ? AuthStatus.authenticated
         : AuthStatus.unauthenticated;
 
+    if (_currentUser != null) {
+      _fetchSubscriptionStatus(_currentUser!.id);
+    }
+
     _supabase.auth.onAuthStateChange.listen((data) {
       final event = data.event;
       final session = data.session;
@@ -46,12 +49,28 @@ class AuthController extends ChangeNotifier {
       if (event == AuthChangeEvent.signedIn && session != null) {
         _currentUser = session.user;
         _status = AuthStatus.authenticated;
+        _fetchSubscriptionStatus(_currentUser!.id);
       } else if (event == AuthChangeEvent.signedOut) {
         _currentUser = null;
         _status = AuthStatus.unauthenticated;
+        _isSubscribed = false;
       }
       notifyListeners();
     });
+  }
+
+  Future<void> _fetchSubscriptionStatus(String userId) async {
+    try {
+      final data = await _supabase
+          .from('users')
+          .select('is_subscribed')
+          .eq('id', userId)
+          .maybeSingle();
+      _isSubscribed = (data?['is_subscribed'] as bool?) ?? false;
+    } catch (_) {
+      _isSubscribed = false;
+    }
+    notifyListeners();
   }
 
   /// يفتح نافذة اختيار حساب Google داخل التطبيق (بدون متصفح خارجي)
@@ -102,7 +121,8 @@ class AuthController extends ChangeNotifier {
     } on PlatformException catch (e) {
       debugPrint('Google Sign In PlatformException: ${e.code}, ${e.message}');
       if (e.code == 'sign_in_failed' && e.message?.contains('10') == true) {
-        _setError('خطأ في إعدادات التطبيق (ApiException 10). تأكد من مطابقة SHA-1 في Firebase والـ Client ID.');
+        _setError(
+            'خطأ في إعدادات التطبيق (ApiException 10). تأكد من مطابقة SHA-1 في Firebase والـ Client ID.');
       } else {
         _setError(e.message ?? 'فشل تسجيل الدخول مع Google');
       }

@@ -9,7 +9,7 @@ class AppColors {
 
   // Accent
   static const Color accent = Color(0xFFFF6584);
-  static const Color accentLight = Color(0xFFFF92A8);
+  static const Color accentLight = Color.fromARGB(255, 44, 14, 20);
 
   // Background
   static const Color bgDark = Color(0xFF0D0D0D);

@@ -143,18 +143,6 @@ class _SplashScreenState extends State<SplashScreen>
                 fit: BoxFit.fill),
           ),
 
-          // ── Dark gradient overlay (top → transparent → dark bottom) ───
-          Container(
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                colors: [AppColors.overlayEnd, AppColors.overlayStart],
-                stops: [0.0, 1.0],
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-              ),
-            ),
-          ),
-
           // ── Bottom overlay: progress bar + status text ────────────────
           SafeArea(
             child: Column(
@@ -165,18 +153,18 @@ class _SplashScreenState extends State<SplashScreen>
                   child: SlideTransition(
                     position: _textSlide,
                     child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 32.0),
+                      padding: const EdgeInsets.symmetric(horizontal: 15.0),
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           GannZillaProgressBar(
                             duration: const Duration(milliseconds: 3800),
                           ),
-                          const SizedBox(height: 16.0),
+                          const SizedBox(height: 2.0),
 
                           // Status message
                           SizedBox(
-                            height: 22.0,
+                            height: 15.0,
                             child: AnimatedSwitcher(
                               duration: const Duration(milliseconds: 300),
                               transitionBuilder:
