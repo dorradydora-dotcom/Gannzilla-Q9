@@ -31,7 +31,6 @@ class AppStrings {
   static const String homeSubtitle = 'What are you looking for today?';
   static const String quickActions = 'Quick Actions';
   static const String bannerTitle = 'Welcome to ';
-  static const String bannerExclaim = '! ⚡';
   static const String bannerSubtitle =
       'Track Whale Trades, Crypto, and Forex\nin one place';
   static const String comingSoon = 'Coming soon...';

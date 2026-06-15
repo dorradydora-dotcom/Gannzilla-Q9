@@ -7,6 +7,7 @@ import '../../../core/constants/app_strings.dart';
 import '../../../core/widgets/gannzilla_text.dart';
 import '../../auth/controllers/auth_controller.dart';
 import '../../../core/services/market_data_service.dart';
+import 'package:shimmer/shimmer.dart';
 
 class HomeTab extends StatelessWidget {
   final Animation<double> glowAnim;
@@ -175,41 +176,70 @@ class HomeTab extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Crypto strip — speed: 40 px/s
+                // ── Headline ──
+                Padding(
+                  padding: EdgeInsets.only(left: 20.w, bottom: 10.h),
+                  child: Text(
+                    'Market Top',
+                    style: TextStyle(
+                      fontSize: 18.sp,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.textPrimary,
+                      letterSpacing: 0.3,
+                    ),
+                  ),
+                ),
+                // Crypto strip — static
                 SizedBox(
-                  height: 70.h,
+                  height: 50.h,
                   child: StreamBuilder<List<TickerData>>(
                     stream: marketDataService.getCryptoTickersStream(),
                     builder: (context, snapshot) {
-                      if (snapshot.connectionState == ConnectionState.waiting && !snapshot.hasData) return const Center(child: CircularProgressIndicator(strokeWidth: 2));
-                      if (!snapshot.hasData || snapshot.data!.isEmpty) return const SizedBox.shrink();
-                      return TickerMarquee(items: snapshot.data!, pixelsPerSecond: 40);
+                      if (snapshot.connectionState == ConnectionState.waiting &&
+                          !snapshot.hasData) {
+                        return const _TickerShimmerLoader();
+                      }
+                      if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                        return const SizedBox.shrink();
+                      }
+                      return _StaticTickerRow(items: snapshot.data!);
                     },
                   ),
                 ),
                 SizedBox(height: 10.h),
-                // Forex strip — speed: 55 px/s
+                // Forex strip — static
                 SizedBox(
-                  height: 70.h,
+                  height: 50.h,
                   child: StreamBuilder<List<TickerData>>(
                     stream: marketDataService.getForexTickersStream(),
                     builder: (context, snapshot) {
-                      if (snapshot.connectionState == ConnectionState.waiting && !snapshot.hasData) return const Center(child: CircularProgressIndicator(strokeWidth: 2));
-                      if (!snapshot.hasData || snapshot.data!.isEmpty) return const SizedBox.shrink();
-                      return TickerMarquee(items: snapshot.data!, pixelsPerSecond: 55);
+                      if (snapshot.connectionState == ConnectionState.waiting &&
+                          !snapshot.hasData) {
+                        return const _TickerShimmerLoader();
+                      }
+                      if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                        return const SizedBox.shrink();
+                      }
+                      return _StaticTickerRow(items: snapshot.data!);
                     },
                   ),
                 ),
                 SizedBox(height: 10.h),
-                // Metals strip — speed: 30 px/s
+                // Metals strip — static
                 SizedBox(
-                  height: 70.h,
+                  height: 50.h,
                   child: StreamBuilder<List<TickerData>>(
                     stream: marketDataService.getMetalTickersStream(),
                     builder: (context, snapshot) {
-                      if (snapshot.connectionState == ConnectionState.waiting && !snapshot.hasData) return const Center(child: CircularProgressIndicator(strokeWidth: 2));
-                      if (!snapshot.hasData || snapshot.data!.isEmpty) return const SizedBox.shrink();
-                      return TickerMarquee(items: snapshot.data!, pixelsPerSecond: 30);
+                      if (snapshot.connectionState == ConnectionState.waiting &&
+                          !snapshot.hasData) {
+                        return const _TickerShimmerLoader();
+                      }
+                      if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                        return const SizedBox.shrink();
+                      }
+                      return _StaticTickerRow(
+                          items: snapshot.data!, showIcon: false);
                     },
                   ),
                 ),
@@ -221,21 +251,29 @@ class HomeTab extends StatelessWidget {
         // ── Hero Banner ───────────────────────────────────
         SliverToBoxAdapter(
           child: Padding(
-            padding: EdgeInsets.fromLTRB(24.w, 20.h, 24.w, 0),
+            padding: EdgeInsets.fromLTRB(30.w, 20.h, 30.w, 0),
             child: AnimatedBuilder(
               animation: glowAnim,
               builder: (_, __) => Container(
                 decoration: BoxDecoration(
                   gradient: const LinearGradient(
-                    colors: [AppColors.primary, AppColors.accent],
+                    colors: [
+                      Colors.teal,
+                      Colors.teal,
+                      Colors.black,
+                      AppColors.accent
+                    ],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   ),
-                  borderRadius: BorderRadius.circular(24.r),
+                  borderRadius: BorderRadius.only(
+                    topLeft: Radius.circular(40.r),
+                    bottomRight: Radius.circular(40.r),
+                  ),
                   boxShadow: [
                     BoxShadow(
-                      color:
-                          AppColors.primary.withValues(alpha: glowAnim.value),
+                      color: const Color.fromARGB(255, 216, 215, 238)
+                          .withValues(alpha: glowAnim.value),
                       blurRadius: 28.r,
                       spreadRadius: 2.r,
                       offset: Offset(0, 8.h),
@@ -278,30 +316,19 @@ class HomeTab extends StatelessWidget {
                         children: [
                           Row(
                             children: [
-                              Text(
-                                'Welcome to ',
-                                style: TextStyle(
-                                  fontSize: 17.sp,
-                                  fontWeight: FontWeight.w800,
-                                  color: Colors.white,
-                                ),
-                              ),
-                              GannZillaText(fontSize: 17),
-                              Text(
-                                ' ⚡',
-                                style: TextStyle(
-                                  fontSize: 17.sp,
-                                  fontWeight: FontWeight.w800,
-                                  color: Colors.white,
-                                ),
-                              ),
+                              Text('Welcome to ',
+                                  style: TextStyle(
+                                      fontSize: 14.sp,
+                                      color: const Color.fromARGB(
+                                          235, 255, 255, 255))),
+                              GannZillaText(fontSize: 20, isWhiteAndRed: true)
                             ],
                           ),
                           SizedBox(height: 2.h),
                           Text(
                             AppStrings.bannerSubtitle,
                             style: TextStyle(
-                              fontSize: 12.sp,
+                              fontSize: 10.sp,
                               color: Colors.white70,
                               height: 1.5,
                             ),
@@ -315,10 +342,10 @@ class HomeTab extends StatelessWidget {
                               borderRadius: BorderRadius.circular(20.r),
                             ),
                             child: Text(
-                              'Explore Now →',
+                              'Subscribe Now to unlock GannZilla →',
                               style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 12.sp,
+                                color: Colors.cyanAccent,
+                                fontSize: 10.sp,
                                 fontWeight: FontWeight.w700,
                               ),
                             ),
@@ -441,6 +468,51 @@ class SectionHeader extends StatelessWidget {
   }
 }
 
+// ─── Shimmer Loader ────────────────────────────────────────
+class _TickerShimmerLoader extends StatelessWidget {
+  const _TickerShimmerLoader();
+
+  @override
+  Widget build(BuildContext context) {
+    return Shimmer.fromColors(
+      baseColor: AppColors.bgCard,
+      highlightColor: AppColors.borderSubtle,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        padding: EdgeInsets.symmetric(horizontal: 16.w),
+        itemCount: 4,
+        separatorBuilder: (_, __) => SizedBox(width: 10.w),
+        itemBuilder: (_, __) => Container(
+          width: 120.w,
+          padding: EdgeInsets.symmetric(horizontal: 6.w, vertical: 4.h),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12.r),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Static (non-scrolling) Ticker Row ───────────────────
+class _StaticTickerRow extends StatelessWidget {
+  final List<TickerData> items;
+  final bool showIcon;
+  const _StaticTickerRow({required this.items, this.showIcon = true});
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView.separated(
+      scrollDirection: Axis.horizontal,
+      padding: EdgeInsets.symmetric(horizontal: 16.w),
+      itemCount: items.length,
+      separatorBuilder: (_, __) => SizedBox(width: 10.w),
+      itemBuilder: (_, i) => TickerCard(data: items[i], showIcon: showIcon),
+    );
+  }
+}
+
 // ─── Auto-Scrolling Ticker Marquee ───────────────────────
 class TickerMarquee extends StatefulWidget {
   final List<TickerData> items;
@@ -537,7 +609,8 @@ class _TickerMarqueeState extends State<TickerMarquee> {
 // ─── Market Ticker Card ───────────────────────────────────
 class TickerCard extends StatefulWidget {
   final TickerData data;
-  const TickerCard({super.key, required this.data});
+  final bool showIcon;
+  const TickerCard({super.key, required this.data, this.showIcon = true});
 
   @override
   State<TickerCard> createState() => _TickerCardState();
@@ -587,119 +660,116 @@ class _TickerCardState extends State<TickerCard> {
   @override
   Widget build(BuildContext context) {
     final data = widget.data;
-    final changeColor = data.isUp ? const Color(0xFF00E676) : const Color(0xFFFF1744);
+    final changeColor = data.isUp ? const Color(0xFF00E676) : Colors.red;
     return Container(
-      padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
+      padding: EdgeInsets.symmetric(horizontal: 3.w),
       decoration: BoxDecoration(
         color: AppColors.bgCard,
-        borderRadius: BorderRadius.circular(16.r),
+        borderRadius: BorderRadius.circular(12.r),
         border: Border.all(color: AppColors.borderSubtle, width: 1),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
+          // Symbol row
           Row(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              Container(
-                width: 26.r,
-                height: 26.r,
-                decoration: BoxDecoration(
-                  gradient: data.gradient,
-                  shape: BoxShape.circle,
-                ),
-                child: data.logoUrl.isNotEmpty
-                    ? ClipOval(
-                        child: Image.network(
-                          data.logoUrl,
-                          fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) => Center(
-                            child: Text(
-                              data.symbol.replaceAll(RegExp(r'[^a-zA-Z]'), '').isNotEmpty 
-                                  ? data.symbol.replaceAll(RegExp(r'[^a-zA-Z]'), '')[0] 
-                                  : '?',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 11.sp,
-                                fontWeight: FontWeight.w800,
+              if (widget.showIcon) ...[
+                Container(
+                  width: 15.r,
+                  height: 15.r,
+                  decoration: BoxDecoration(
+                    gradient: data.gradient,
+                    shape: BoxShape.circle,
+                  ),
+                  child: data.logoUrl.isNotEmpty
+                      ? ClipOval(
+                          child: Image.network(
+                            data.logoUrl,
+                            fit: BoxFit.cover,
+                            errorBuilder: (context, error, stackTrace) =>
+                                Center(
+                              child: Text(
+                                data.symbol
+                                        .replaceAll(RegExp(r'[^a-zA-Z]'), '')
+                                        .isNotEmpty
+                                    ? data.symbol
+                                        .replaceAll(RegExp(r'[^a-zA-Z]'), '')[0]
+                                    : '?',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 7.sp,
+                                  fontWeight: FontWeight.w800,
+                                ),
                               ),
                             ),
                           ),
-                        ),
-                      )
-                    : Center(
-                        child: Text(
-                          data.symbol.replaceAll(RegExp(r'[^a-zA-Z]'), '').isNotEmpty 
-                              ? data.symbol.replaceAll(RegExp(r'[^a-zA-Z]'), '')[0] 
-                              : '?',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 11.sp,
-                            fontWeight: FontWeight.w800,
+                        )
+                      : Center(
+                          child: Text(
+                            data.symbol
+                                    .replaceAll(RegExp(r'[^a-zA-Z]'), '')
+                                    .isNotEmpty
+                                ? data.symbol
+                                    .replaceAll(RegExp(r'[^a-zA-Z]'), '')[0]
+                                : '?',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 7.sp,
+                              fontWeight: FontWeight.w800,
+                            ),
                           ),
                         ),
-                      ),
-              ),
-              SizedBox(width: 6.w),
+                ),
+                SizedBox(width: 4.w),
+              ],
               Text(
                 data.symbol,
                 style: TextStyle(
                   color: AppColors.textPrimary,
-                  fontSize: 13.sp,
+                  fontSize: 11.sp,
                   fontWeight: FontWeight.w700,
                 ),
               ),
             ],
           ),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              AnimatedDefaultTextStyle(
-                duration: const Duration(milliseconds: 300),
-                style: TextStyle(
-                  color: _priceColor,
-                  fontSize: 12.sp,
-                  fontWeight: FontWeight.w700,
-                  shadows: _isGlowing ? [
-                    Shadow(
-                      color: _priceColor.withValues(alpha: 0.8),
-                      blurRadius: 10,
-                    )
-                  ] : [],
-                ),
-                child: Text(data.price),
+
+          // Price
+          AnimatedDefaultTextStyle(
+            duration: const Duration(milliseconds: 300),
+            style: TextStyle(
+              color: _priceColor,
+              fontSize: 11.sp,
+              fontWeight: FontWeight.w700,
+              shadows: _isGlowing
+                  ? [
+                      Shadow(
+                        color: _priceColor.withValues(alpha: 0.8),
+                        blurRadius: 8,
+                      )
+                    ]
+                  : [],
+            ),
+            child: Text(data.price),
+          ),
+          // Percentage badge below price
+          Container(
+            padding: EdgeInsets.symmetric(horizontal: 4.w, vertical: 1.h),
+            decoration: BoxDecoration(
+              color: changeColor.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(4.r),
+            ),
+            child: Text(
+              data.change,
+              style: TextStyle(
+                color: changeColor,
+                fontSize: 9.sp,
+                fontWeight: FontWeight.w600,
               ),
-              SizedBox(height: 2.h),
-              Container(
-                padding: EdgeInsets.symmetric(horizontal: 6.w, vertical: 2.h),
-                decoration: BoxDecoration(
-                  color: changeColor.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(6.r),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      data.isUp
-                          ? Icons.arrow_upward_rounded
-                          : Icons.arrow_downward_rounded,
-                      color: changeColor,
-                      size: 10.r,
-                    ),
-                    SizedBox(width: 2.w),
-                    Text(
-                      data.change,
-                      style: TextStyle(
-                        color: changeColor,
-                        fontSize: 10.sp,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
+            ),
           ),
         ],
       ),

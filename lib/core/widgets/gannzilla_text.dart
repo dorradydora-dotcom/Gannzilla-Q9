@@ -29,7 +29,7 @@ class GannZillaText extends StatelessWidget {
       style: TextStyle(
         color: Colors.white,
         fontWeight: FontWeight.w700,
-        fontSize: 32.sp,
+        fontSize: fontSize.sp,
       ),
     );
 
@@ -38,7 +38,7 @@ class GannZillaText extends StatelessWidget {
       style: TextStyle(
         color: Colors.white,
         fontWeight: FontWeight.w700,
-        fontSize: 32.sp,
+        fontSize: fontSize.sp,
       ),
     );
 
