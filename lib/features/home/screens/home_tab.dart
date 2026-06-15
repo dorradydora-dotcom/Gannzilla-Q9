@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:provider/provider.dart';
@@ -5,6 +6,7 @@ import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_strings.dart';
 import '../../../core/widgets/gannzilla_text.dart';
 import '../../auth/controllers/auth_controller.dart';
+import '../../../core/services/market_data_service.dart';
 
 class HomeTab extends StatelessWidget {
   final Animation<double> glowAnim;
@@ -12,13 +14,8 @@ class HomeTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Mock market ticker data
-    final tickers = [
-      TickerData('BTC', '\$104,220', '+2.4%', true, AppColors.cryptoGradient),
-      TickerData('ETH', '\$3,891', '-0.8%', false, AppColors.primaryGradient),
-      TickerData('BNB', '\$712', '+1.1%', true, AppColors.newsGradient),
-      TickerData('SOL', '\$188', '+5.2%', true, AppColors.whaleGradient),
-    ];
+    // Market data service for tickers
+    final marketDataService = MarketDataService();
 
     // Mock whale alerts
     final whaleAlerts = [
@@ -171,19 +168,52 @@ class HomeTab extends StatelessWidget {
           ),
         ),
 
-        // ── Market Ticker Horizontal Strip ───────────────
+        // ── Market Tickers ────────────────────────────────
         SliverToBoxAdapter(
           child: Padding(
-            padding: EdgeInsets.only(top: 20.h),
-            child: SizedBox(
-              height: 88.h,
-              child: ListView.separated(
-                scrollDirection: Axis.horizontal,
-                padding: EdgeInsets.symmetric(horizontal: 24.w),
-                itemCount: tickers.length,
-                separatorBuilder: (_, __) => SizedBox(width: 12.w),
-                itemBuilder: (context, i) => TickerCard(data: tickers[i]),
-              ),
+            padding: EdgeInsets.only(top: 20.h, bottom: 8.h),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Crypto strip — speed: 40 px/s
+                SizedBox(
+                  height: 70.h,
+                  child: StreamBuilder<List<TickerData>>(
+                    stream: marketDataService.getCryptoTickersStream(),
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState == ConnectionState.waiting && !snapshot.hasData) return const Center(child: CircularProgressIndicator(strokeWidth: 2));
+                      if (!snapshot.hasData || snapshot.data!.isEmpty) return const SizedBox.shrink();
+                      return TickerMarquee(items: snapshot.data!, pixelsPerSecond: 40);
+                    },
+                  ),
+                ),
+                SizedBox(height: 10.h),
+                // Forex strip — speed: 55 px/s
+                SizedBox(
+                  height: 70.h,
+                  child: StreamBuilder<List<TickerData>>(
+                    stream: marketDataService.getForexTickersStream(),
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState == ConnectionState.waiting && !snapshot.hasData) return const Center(child: CircularProgressIndicator(strokeWidth: 2));
+                      if (!snapshot.hasData || snapshot.data!.isEmpty) return const SizedBox.shrink();
+                      return TickerMarquee(items: snapshot.data!, pixelsPerSecond: 55);
+                    },
+                  ),
+                ),
+                SizedBox(height: 10.h),
+                // Metals strip — speed: 30 px/s
+                SizedBox(
+                  height: 70.h,
+                  child: StreamBuilder<List<TickerData>>(
+                    stream: marketDataService.getMetalTickersStream(),
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState == ConnectionState.waiting && !snapshot.hasData) return const Center(child: CircularProgressIndicator(strokeWidth: 2));
+                      if (!snapshot.hasData || snapshot.data!.isEmpty) return const SizedBox.shrink();
+                      return TickerMarquee(items: snapshot.data!, pixelsPerSecond: 30);
+                    },
+                  ),
+                ),
+              ],
             ),
           ),
         ),
@@ -411,27 +441,155 @@ class SectionHeader extends StatelessWidget {
   }
 }
 
-// ─── Market Ticker Card ───────────────────────────────────
-class TickerData {
-  final String symbol;
-  final String price;
-  final String change;
-  final bool isUp;
-  final LinearGradient gradient;
-  const TickerData(
-      this.symbol, this.price, this.change, this.isUp, this.gradient);
+// ─── Auto-Scrolling Ticker Marquee ───────────────────────
+class TickerMarquee extends StatefulWidget {
+  final List<TickerData> items;
+  final double pixelsPerSecond;
+
+  const TickerMarquee({
+    super.key,
+    required this.items,
+    required this.pixelsPerSecond,
+  });
+
+  @override
+  State<TickerMarquee> createState() => _TickerMarqueeState();
 }
 
-class TickerCard extends StatelessWidget {
+class _TickerMarqueeState extends State<TickerMarquee> {
+  final ScrollController _controller = ScrollController();
+  List<TickerData> _items = [];
+  bool _running = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _items = widget.items;
+    WidgetsBinding.instance.addPostFrameCallback((_) => _startScroll());
+  }
+
+  @override
+  void didUpdateWidget(TickerMarquee oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Update data without resetting scroll position
+    setState(() => _items = widget.items);
+  }
+
+  Future<void> _startScroll() async {
+    if (_running) return;
+    _running = true;
+    while (mounted && _running) {
+      if (!_controller.hasClients) {
+        await Future.delayed(const Duration(milliseconds: 100));
+        continue;
+      }
+      final max = _controller.position.maxScrollExtent;
+      if (max <= 0) {
+        await Future.delayed(const Duration(milliseconds: 200));
+        continue;
+      }
+      final current = _controller.offset;
+      final remaining = max - current;
+      if (remaining <= 0) {
+        _controller.jumpTo(0);
+        continue;
+      }
+      final durationMs = (remaining / widget.pixelsPerSecond * 1000).round();
+      await _controller.animateTo(
+        max,
+        duration: Duration(milliseconds: durationMs),
+        curve: Curves.linear,
+      );
+      if (!mounted) break;
+      _controller.jumpTo(0);
+    }
+    _running = false;
+  }
+
+  @override
+  void dispose() {
+    _running = false;
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // Repeat items 4× for a seamless infinite feel
+    final repeated = [
+      ..._items,
+      ..._items,
+      ..._items,
+      ..._items,
+    ];
+    return ListView.separated(
+      controller: _controller,
+      scrollDirection: Axis.horizontal,
+      physics: const NeverScrollableScrollPhysics(),
+      padding: EdgeInsets.symmetric(horizontal: 16.w),
+      itemCount: repeated.length,
+      separatorBuilder: (_, __) => SizedBox(width: 10.w),
+      itemBuilder: (_, i) => TickerCard(data: repeated[i]),
+    );
+  }
+}
+
+// ─── Market Ticker Card ───────────────────────────────────
+class TickerCard extends StatefulWidget {
   final TickerData data;
   const TickerCard({super.key, required this.data});
 
   @override
+  State<TickerCard> createState() => _TickerCardState();
+}
+
+class _TickerCardState extends State<TickerCard> {
+  Color _priceColor = AppColors.textPrimary;
+  bool _isGlowing = false;
+  Timer? _colorTimer;
+
+  @override
+  void didUpdateWidget(covariant TickerCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.data.rawPrice > oldWidget.data.rawPrice) {
+      setState(() {
+        _priceColor = const Color(0xFF00E676); // Bright greenAccent
+        _isGlowing = true;
+      });
+      _resetColor();
+    } else if (widget.data.rawPrice < oldWidget.data.rawPrice) {
+      setState(() {
+        _priceColor = const Color(0xFFFF1744); // Bright redAccent
+        _isGlowing = true;
+      });
+      _resetColor();
+    }
+  }
+
+  void _resetColor() {
+    _colorTimer?.cancel();
+    _colorTimer = Timer(const Duration(milliseconds: 1000), () {
+      if (mounted) {
+        setState(() {
+          _priceColor = AppColors.textPrimary;
+          _isGlowing = false;
+        });
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _colorTimer?.cancel();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final changeColor = data.isUp ? const Color(0xFF4CAF50) : AppColors.error;
+    final data = widget.data;
+    final changeColor = data.isUp ? const Color(0xFF00E676) : const Color(0xFFFF1744);
     return Container(
-      width: 120.w,
-      padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 2.h),
+      padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
       decoration: BoxDecoration(
         color: AppColors.bgCard,
         borderRadius: BorderRadius.circular(16.r),
@@ -445,22 +603,43 @@ class TickerCard extends StatelessWidget {
           Row(
             children: [
               Container(
-                width: 28.r,
-                height: 28.r,
+                width: 26.r,
+                height: 26.r,
                 decoration: BoxDecoration(
                   gradient: data.gradient,
                   shape: BoxShape.circle,
                 ),
-                child: Center(
-                  child: Text(
-                    data.symbol[0],
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 11.sp,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                ),
+                child: data.logoUrl.isNotEmpty
+                    ? ClipOval(
+                        child: Image.network(
+                          data.logoUrl,
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) => Center(
+                            child: Text(
+                              data.symbol.replaceAll(RegExp(r'[^a-zA-Z]'), '').isNotEmpty 
+                                  ? data.symbol.replaceAll(RegExp(r'[^a-zA-Z]'), '')[0] 
+                                  : '?',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 11.sp,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                          ),
+                        ),
+                      )
+                    : Center(
+                        child: Text(
+                          data.symbol.replaceAll(RegExp(r'[^a-zA-Z]'), '').isNotEmpty 
+                              ? data.symbol.replaceAll(RegExp(r'[^a-zA-Z]'), '')[0] 
+                              : '?',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 11.sp,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ),
               ),
               SizedBox(width: 6.w),
               Text(
@@ -476,13 +655,20 @@ class TickerCard extends StatelessWidget {
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                data.price,
+              AnimatedDefaultTextStyle(
+                duration: const Duration(milliseconds: 300),
                 style: TextStyle(
-                  color: AppColors.textPrimary,
+                  color: _priceColor,
                   fontSize: 12.sp,
                   fontWeight: FontWeight.w700,
+                  shadows: _isGlowing ? [
+                    Shadow(
+                      color: _priceColor.withValues(alpha: 0.8),
+                      blurRadius: 10,
+                    )
+                  ] : [],
                 ),
+                child: Text(data.price),
               ),
               SizedBox(height: 2.h),
               Container(
