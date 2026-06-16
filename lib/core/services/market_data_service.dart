@@ -483,3 +483,134 @@ class MarketDataService {
         isUp, gradient, logoUrl);
   }
 }
+
+// ─── Whale Price Service ──────────────────────────────────
+// Fetches real-time prices for the Whale Activity feed columns.
+class WhalePriceService {
+  /// Returns symbol → live price for crypto (e.g. 'BTC' → 67400.0)
+  static Future<Map<String, double>> fetchCryptoPrices(
+      List<String> symbols) async {
+    try {
+      final syms = symbols.map((s) => '"${s}USDT"').join(',');
+      final url = Uri.parse(
+          'https://api.binance.com/api/v3/ticker/price?symbols=[$syms]');
+      final response =
+          await http.get(url).timeout(const Duration(seconds: 8));
+      if (response.statusCode == 200) {
+        final List data = json.decode(response.body);
+        final result = <String, double>{};
+        for (final item in data) {
+          final sym =
+              (item['symbol'] as String).replaceAll('USDT', '');
+          final price = double.tryParse(item['price'] ?? '0') ?? 0;
+          if (price > 0) result[sym] = price;
+        }
+        return result;
+      }
+    } catch (_) {}
+    return {};
+  }
+
+  /// Returns pair → live price for forex (e.g. 'EUR/USD' → 1.0842)
+  static Future<Map<String, double>> fetchForexPrices() async {
+    try {
+      final url = Uri.parse('https://open.er-api.com/v6/latest/USD');
+      final response =
+          await http.get(url).timeout(const Duration(seconds: 8));
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        final rates = data['rates'] as Map<String, dynamic>;
+        double inv(String c) =>
+            1.0 / ((rates[c] as num?)?.toDouble() ?? 1.0);
+        double dir(String c) =>
+            (rates[c] as num?)?.toDouble() ?? 0.0;
+        return {
+          'EUR/USD': inv('EUR'),
+          'GBP/JPY': inv('GBP') * dir('JPY'),
+          'USD/CHF': dir('CHF'),
+          'AUD/USD': inv('AUD'),
+          'USD/JPY': dir('JPY'),
+          'USD/CAD': dir('CAD'),
+          'NZD/USD': inv('NZD'),
+          'EUR/GBP': inv('EUR') / inv('GBP'),
+          'GBP/USD': inv('GBP'),
+          'USD/CNY': dir('CNY'),
+        };
+      }
+    } catch (e) {
+      // fallback: try Frankfurter
+      try {
+        final url =
+            Uri.parse('https://api.frankfurter.app/latest?from=USD');
+        final response =
+            await http.get(url).timeout(const Duration(seconds: 8));
+        if (response.statusCode == 200) {
+          final data = json.decode(response.body);
+          final rates = data['rates'] as Map<String, dynamic>;
+          double inv(String c) =>
+              1.0 / ((rates[c] as num?)?.toDouble() ?? 1.0);
+          double dir(String c) =>
+              (rates[c] as num?)?.toDouble() ?? 0.0;
+          return {
+            'EUR/USD': inv('EUR'),
+            'GBP/JPY': inv('GBP') * dir('JPY'),
+            'USD/CHF': dir('CHF'),
+            'AUD/USD': inv('AUD'),
+            'USD/JPY': dir('JPY'),
+            'USD/CAD': dir('CAD'),
+            'NZD/USD': inv('NZD'),
+            'EUR/GBP': inv('EUR') / inv('GBP'),
+            'GBP/USD': inv('GBP'),
+            'USD/CNY': dir('CNY'),
+          };
+        }
+      } catch (_) {}
+    }
+    return {};
+  }
+
+  /// Returns symbol → live price for metals/commodities
+  /// Yahoo tickers: GC=F(Gold) SI=F(Silver) PL=F(Platinum) PA=F(Palladium)
+  ///                HG=F(Copper) CL=F(WTI) BZ=F(Brent) NG=F(NatGas)
+  static Future<Map<String, double>> fetchMetalPrices() async {
+    const yahooTickers = [
+      'GC=F', 'SI=F', 'PL=F', 'PA=F',
+      'HG=F', 'CL=F', 'BZ=F', 'NG=F',
+    ];
+    const symbolMap = [
+      'XAU/USD', 'XAG/USD', 'XPT/USD', 'XPD/USD',
+      'COPPER', 'WTI', 'BRENT', 'NATGAS',
+    ];
+
+    try {
+      final responses = await Future.wait(
+        yahooTickers.map((t) => http
+            .get(Uri.parse(
+                'https://query1.finance.yahoo.com/v8/finance/chart/$t'))
+            .timeout(const Duration(seconds: 8))),
+      );
+
+      double parsePrice(http.Response res) {
+        if (res.statusCode == 200) {
+          final data = json.decode(res.body);
+          final result = data['chart']?['result'];
+          if (result != null && result.isNotEmpty) {
+            return (result[0]['meta']['regularMarketPrice'] as num?)
+                    ?.toDouble() ??
+                0.0;
+          }
+        }
+        return 0.0;
+      }
+
+      final result = <String, double>{};
+      for (int i = 0; i < yahooTickers.length; i++) {
+        final price = parsePrice(responses[i]);
+        if (price > 0) result[symbolMap[i]] = price;
+      }
+      return result;
+    } catch (_) {}
+    return {};
+  }
+}
+

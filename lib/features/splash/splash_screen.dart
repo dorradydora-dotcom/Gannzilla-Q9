@@ -115,14 +115,25 @@ class _SplashScreenState extends State<SplashScreen>
 
   Future<void> _navigate() async {
     bool hasInternet = false;
-    try {
-      final result = await InternetAddress.lookup('example.com')
-          .timeout(const Duration(seconds: 5));
-      if (result.isNotEmpty && result[0].rawAddress.isNotEmpty) {
-        hasInternet = true;
+
+    // Try up to 3 times with a 2-second gap — gives the device time to
+    // fully establish its network connection before we give up.
+    for (int attempt = 1; attempt <= 3; attempt++) {
+      try {
+        final result = await InternetAddress.lookup('example.com')
+            .timeout(const Duration(seconds: 5));
+        if (result.isNotEmpty && result[0].rawAddress.isNotEmpty) {
+          hasInternet = true;
+          break; // success — stop retrying
+        }
+      } catch (_) {
+        // lookup failed or timed out
       }
-    } catch (_) {
-      hasInternet = false;
+
+      if (!hasInternet && attempt < 3) {
+        // Wait 2 s before the next attempt
+        await Future.delayed(const Duration(seconds: 2));
+      }
     }
 
     if (!mounted) return;

@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -21,16 +22,6 @@ class HomeTab extends StatelessWidget {
   Widget build(BuildContext context) {
     // Market data service for tickers
     final marketDataService = MarketDataService();
-
-    // Mock whale alerts
-    final whaleAlerts = [
-      WhaleAlert('🐋', 'BTC', '12,400 BTC', 'Transferred to Binance', '2m ago',
-          Colors.orange),
-      WhaleAlert('🐳', 'ETH', '86,000 ETH', 'Moved to cold wallet', '11m ago',
-          AppColors.primary),
-      WhaleAlert('🦈', 'USDT', '\$320M', 'Minted on Tron', '34m ago',
-          AppColors.accent),
-    ];
 
     return CustomScrollView(
       slivers: [
@@ -190,16 +181,16 @@ class HomeTab extends StatelessWidget {
         // ── Market Tickers ────────────────────────────────
         SliverToBoxAdapter(
           child: Padding(
-            padding: EdgeInsets.only(top: 12.h, bottom: 12.h),
+            padding: EdgeInsets.only(top: 6.h, bottom: 4.h),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 // News Ticker
                 const NewsMarqueeWidget(),
-                SizedBox(height: 4.h),
+                SizedBox(height: 2.h),
                 // ── Headline ──
                 Padding(
-                  padding: EdgeInsets.only(left: 20.w, bottom: 10.h),
+                  padding: EdgeInsets.only(left: 20.w, bottom: 4.h),
                   child: Text(
                     'Market Top',
                     style: TextStyle(
@@ -272,7 +263,7 @@ class HomeTab extends StatelessWidget {
         // ── Hero Banner ───────────────────────────────────
         SliverToBoxAdapter(
           child: Padding(
-            padding: EdgeInsets.fromLTRB(24.w, 12.h, 24.w, 0),
+            padding: EdgeInsets.fromLTRB(24.w, 4.h, 24.w, 0),
             child: AnimatedBuilder(
               animation: glowAnim,
               builder: (_, __) => Container(
@@ -312,7 +303,7 @@ class HomeTab extends StatelessWidget {
                     ),
                     Padding(
                       padding: EdgeInsets.symmetric(
-                          horizontal: 20.w, vertical: 16.h),
+                          horizontal: 20.w, vertical: 10.h),
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -385,12 +376,12 @@ class HomeTab extends StatelessWidget {
         // ── Quick Actions ────────────────────────────────
         SliverToBoxAdapter(
           child: Padding(
-            padding: EdgeInsets.fromLTRB(24.w, 12.h, 24.w, 0),
+            padding: EdgeInsets.fromLTRB(24.w, 6.h, 24.w, 0),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 SectionHeader(title: AppStrings.headSectors),
-                SizedBox(height: 4.h),
+                SizedBox(height: 2.h),
                 GridView.count(
                   shrinkWrap: true,
                   physics: const NeverScrollableScrollPhysics(),
@@ -433,13 +424,139 @@ class HomeTab extends StatelessWidget {
         // ── Whale Activity Feed ───────────────────────────
         SliverToBoxAdapter(
           child: Padding(
-            padding: EdgeInsets.fromLTRB(24.w, 14.h, 24.w, 0),
+            padding: EdgeInsets.fromLTRB(24.w, 6.h, 24.w, 0),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                SectionHeader(title: '🐋 Whale Activity'),
-                SizedBox(height: 6.h),
-                ...whaleAlerts.map((alert) => WhaleAlertTile(data: alert)),
+                // Header row with See All button
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const SectionHeader(title: '🐋 Whale Activity'),
+                    GestureDetector(
+                      onTap: () => context.push('/whale-feed?tab=0'),
+                      child: Container(
+                        padding: EdgeInsets.symmetric(
+                            horizontal: 10.w, vertical: 4.h),
+                        decoration: BoxDecoration(
+                          color: AppColors.primary.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(8.r),
+                          border: Border.all(
+                              color: AppColors.primary.withValues(alpha: 0.3),
+                              width: 1),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              'See All',
+                              style: TextStyle(
+                                color: AppColors.primary,
+                                fontSize: 10.sp,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                            SizedBox(width: 3.w),
+                            Icon(Icons.arrow_forward_ios_rounded,
+                                color: AppColors.primary, size: 9.r),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                SizedBox(height: 4.h),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: GestureDetector(
+                        onTap: () => context.push('/whale-feed?tab=0'),
+                        child: _WhaleColumn(
+                          label: 'Forex',
+                          icon: Icons.show_chart_rounded,
+                          color: const Color(0xFF2196F3),
+                          symbols: const [
+                            'EUR/USD',
+                            'GBP/JPY',
+                            'USD/CHF',
+                            'AUD/USD',
+                            'USD/JPY',
+                            'USD/CAD',
+                          ],
+                          basePrices: const [
+                            1.0842,
+                            197.34,
+                            0.8961,
+                            0.6512,
+                            157.82,
+                            1.3641,
+                          ],
+                          unit: 'M',
+                          interval: const Duration(milliseconds: 600),
+                        ),
+                      ),
+                    ),
+                    SizedBox(width: 8.w),
+                    Expanded(
+                      child: GestureDetector(
+                        onTap: () => context.push('/whale-feed?tab=1'),
+                        child: _WhaleColumn(
+                          label: 'Crypto',
+                          icon: Icons.currency_bitcoin_rounded,
+                          color: Colors.orange,
+                          symbols: const [
+                            'BTC',
+                            'ETH',
+                            'SOL',
+                            'BNB',
+                            'XRP',
+                            'DOGE',
+                          ],
+                          basePrices: const [
+                            67400.0,
+                            3520.0,
+                            172.5,
+                            588.0,
+                            0.5231,
+                            0.1642,
+                          ],
+                          unit: 'K',
+                          interval: const Duration(milliseconds: 450),
+                        ),
+                      ),
+                    ),
+                    SizedBox(width: 8.w),
+                    Expanded(
+                      child: GestureDetector(
+                        onTap: () => context.push('/whale-feed?tab=2'),
+                        child: _WhaleColumn(
+                          label: 'Metals',
+                          icon: Icons.diamond_rounded,
+                          color: const Color(0xFFD4AF37),
+                          symbols: const [
+                            'XAU/USD',
+                            'XAG/USD',
+                            'XPT/USD',
+                            'XPD/USD',
+                            'COPPER',
+                            'WTI',
+                          ],
+                          basePrices: const [
+                            2324.5,
+                            28.74,
+                            961.0,
+                            1012.0,
+                            4.523,
+                            78.42,
+                          ],
+                          unit: 'oz',
+                          interval: const Duration(milliseconds: 750),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ],
             ),
           ),
@@ -997,6 +1114,414 @@ class WhaleAlertTile extends StatelessWidget {
   }
 }
 
+// ─── Live Trade Entry model ───────────────────────────────
+class _TradeEntry {
+  final String symbol;
+  final String price;
+  final String size;
+  final bool isBuy;
+  final String time;
+  _TradeEntry({
+    required this.symbol,
+    required this.price,
+    required this.size,
+    required this.isBuy,
+    required this.time,
+  });
+}
+
+// ─── Whale Column — live animated trade feed ──────────────
+class _WhaleColumn extends StatefulWidget {
+  final String label;
+  final IconData icon;
+  final Color color;
+  final List<String> symbols;
+  final List<double> basePrices;
+  final String unit;
+  final Duration interval;
+
+  const _WhaleColumn({
+    required this.label,
+    required this.icon,
+    required this.color,
+    required this.symbols,
+    required this.basePrices,
+    required this.unit,
+    required this.interval,
+  });
+
+  @override
+  State<_WhaleColumn> createState() => _WhaleColumnState();
+}
+
+class _WhaleColumnState extends State<_WhaleColumn> {
+  final GlobalKey<AnimatedListState> _listKey = GlobalKey<AnimatedListState>();
+  final List<_TradeEntry> _trades = [];
+  Timer? _timer;
+  Timer? _priceUpdateTimer;
+  final Random _rnd = Random();
+  static const int _maxTrades = 20;
+  late List<double> _livePrices;
+
+  bool get _isWeekend {
+    final day = DateTime.now().weekday;
+    return day == DateTime.saturday || day == DateTime.sunday;
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _livePrices = List<double>.from(widget.basePrices);
+    // seed 12 initial trades instantly
+    for (int i = 0; i < 12; i++) {
+      _trades.insert(0, _newTrade());
+    }
+    // start live feed
+    _timer = Timer.periodic(widget.interval, (_) => _addTrade());
+
+    // Fetch real-time prices initially (force to load closing prices on weekend) and setup periodic updates
+    _fetchRealPrices(force: true);
+    _priceUpdateTimer =
+        Timer.periodic(const Duration(seconds: 30), (_) => _fetchRealPrices());
+  }
+
+  Future<void> _fetchRealPrices({bool force = false}) async {
+    final labelLower = widget.label.toLowerCase();
+    if (!force &&
+        (labelLower == 'forex' || labelLower == 'metals') &&
+        _isWeekend) {
+      return;
+    }
+    try {
+      Map<String, double> fetchedPrices = {};
+      if (widget.label.toLowerCase() == 'crypto') {
+        fetchedPrices =
+            await WhalePriceService.fetchCryptoPrices(widget.symbols);
+      } else if (widget.label.toLowerCase() == 'forex') {
+        fetchedPrices = await WhalePriceService.fetchForexPrices();
+      } else if (widget.label.toLowerCase() == 'metals') {
+        fetchedPrices = await WhalePriceService.fetchMetalPrices();
+      }
+
+      if (fetchedPrices.isNotEmpty) {
+        if (!mounted) return;
+        setState(() {
+          for (int i = 0; i < widget.symbols.length; i++) {
+            final sym = widget.symbols[i];
+            if (fetchedPrices.containsKey(sym)) {
+              _livePrices[i] = fetchedPrices[sym]!;
+            }
+          }
+        });
+      }
+    } catch (_) {}
+  }
+
+  _TradeEntry _newTrade() {
+    if (widget.symbols.isEmpty) {
+      return _TradeEntry(
+        symbol: '',
+        price: '0.0',
+        size: '0.0',
+        isBuy: true,
+        time: '',
+      );
+    }
+    final idx = _rnd.nextInt(widget.symbols.length);
+    final base = _livePrices[idx];
+    final priceDelta = base * (_rnd.nextDouble() * 0.003 - 0.0015);
+    final price = (base + priceDelta);
+    final sizeVal = _rnd.nextDouble() * 900 + 10;
+    final now = DateTime.now();
+    return _TradeEntry(
+      symbol: widget.symbols[idx],
+      price: price >= 1000
+          ? price.toStringAsFixed(1)
+          : price >= 1
+              ? price.toStringAsFixed(4)
+              : price.toStringAsFixed(6),
+      size: sizeVal >= 1
+          ? '${sizeVal.toStringAsFixed(1)}${widget.unit}'
+          : '${(sizeVal * 1000).toStringAsFixed(0)}K${widget.unit}',
+      isBuy: _rnd.nextBool(),
+      time:
+          '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}:${now.second.toString().padLeft(2, '0')}',
+    );
+  }
+
+  void _addTrade() {
+    if (!mounted) return;
+    final labelLower = widget.label.toLowerCase();
+    if ((labelLower == 'forex' || labelLower == 'metals') && _isWeekend) {
+      return;
+    }
+    final entry = _newTrade();
+    _trades.insert(0, entry);
+    _listKey.currentState
+        ?.insertItem(0, duration: const Duration(milliseconds: 300));
+    if (_trades.length > _maxTrades) {
+      final removed = _trades.removeAt(_trades.length - 1);
+      _listKey.currentState?.removeItem(
+        _trades.length,
+        (context, animation) => _buildRow(removed, animation),
+        duration: const Duration(milliseconds: 150),
+      );
+    }
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    _priceUpdateTimer?.cancel();
+    super.dispose();
+  }
+
+  Widget _buildRow(_TradeEntry t, Animation<double> animation) {
+    final buyColor = const Color(0xFF00E676);
+    final sellColor = const Color(0xFFFF1744);
+    final sideColor = t.isBuy ? buyColor : sellColor;
+
+    return SizeTransition(
+      sizeFactor: animation,
+      axisAlignment: -1,
+      child: FadeTransition(
+        opacity: animation,
+        child: Container(
+          margin: EdgeInsets.only(bottom: 1.h),
+          padding: EdgeInsets.symmetric(horizontal: 6.w, vertical: 4.h),
+          decoration: BoxDecoration(
+            color: sideColor.withValues(alpha: 0.07),
+            border: Border(
+              left: BorderSide(color: sideColor, width: 2.5),
+            ),
+          ),
+          child: Row(
+            children: [
+              // Side indicator dot
+              Container(
+                width: 5.r,
+                height: 5.r,
+                decoration: BoxDecoration(
+                  color: sideColor,
+                  shape: BoxShape.circle,
+                ),
+              ),
+              SizedBox(width: 4.w),
+              // Symbol
+              Expanded(
+                flex: 3,
+                child: Text(
+                  t.symbol,
+                  style: TextStyle(
+                    color: AppColors.textPrimary,
+                    fontSize: 8.5.sp,
+                    fontWeight: FontWeight.w800,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              // Price
+              Expanded(
+                flex: 4,
+                child: Text(
+                  t.price,
+                  style: TextStyle(
+                    color: sideColor,
+                    fontSize: 8.sp,
+                    fontWeight: FontWeight.w700,
+                    fontFeatures: const [FontFeature.tabularFigures()],
+                  ),
+                  textAlign: TextAlign.center,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              // Size
+              Expanded(
+                flex: 3,
+                child: Text(
+                  t.size,
+                  style: TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: 7.5.sp,
+                    fontWeight: FontWeight.w600,
+                  ),
+                  textAlign: TextAlign.end,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.bgCard,
+        borderRadius: BorderRadius.circular(12.r),
+        border:
+            Border.all(color: widget.color.withValues(alpha: 0.3), width: 1),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // ── Header ──
+          Container(
+            width: double.infinity,
+            padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 6.h),
+            decoration: BoxDecoration(
+              color: widget.color.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.only(
+                topLeft: Radius.circular(12.r),
+                topRight: Radius.circular(12.r),
+              ),
+            ),
+            child: Row(
+              children: [
+                Icon(widget.icon, color: widget.color, size: 11.r),
+                SizedBox(width: 4.w),
+                Text(
+                  widget.label,
+                  style: TextStyle(
+                    color: widget.color,
+                    fontSize: 9.5.sp,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0.4,
+                  ),
+                ),
+                const Spacer(),
+                // live dot
+                _PulseDot(color: widget.color),
+              ],
+            ),
+          ),
+          // ── Column labels ──
+          Padding(
+            padding: EdgeInsets.symmetric(horizontal: 6.w, vertical: 3.h),
+            child: Row(
+              children: [
+                SizedBox(width: 9.w),
+                Expanded(
+                  flex: 3,
+                  child: Text('Pair',
+                      style: TextStyle(
+                          color: AppColors.textHint,
+                          fontSize: 7.sp,
+                          fontWeight: FontWeight.w600)),
+                ),
+                Expanded(
+                  flex: 4,
+                  child: Text('Price',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                          color: AppColors.textHint,
+                          fontSize: 7.sp,
+                          fontWeight: FontWeight.w600)),
+                ),
+                Expanded(
+                  flex: 3,
+                  child: Text('Size',
+                      textAlign: TextAlign.end,
+                      style: TextStyle(
+                          color: AppColors.textHint,
+                          fontSize: 7.sp,
+                          fontWeight: FontWeight.w600)),
+                ),
+              ],
+            ),
+          ),
+          // ── Live feed ──
+          SizedBox(
+            height: 350.h,
+            child: AnimatedList(
+              key: _listKey,
+              shrinkWrap: false,
+              physics: const NeverScrollableScrollPhysics(),
+              initialItemCount: _trades.length,
+              itemBuilder: (context, index, animation) {
+                if (index >= _trades.length) return const SizedBox.shrink();
+                return _buildRow(_trades[index], animation);
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── Pulsing live dot ─────────────────────────────────────
+class _PulseDot extends StatefulWidget {
+  final Color color;
+  const _PulseDot({required this.color});
+  @override
+  State<_PulseDot> createState() => _PulseDotState();
+}
+
+class _PulseDotState extends State<_PulseDot>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _ctrl;
+  late Animation<double> _anim;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 900),
+    )..repeat(reverse: true);
+    _anim = Tween<double>(begin: 0.3, end: 1.0).animate(_ctrl);
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FadeTransition(
+      opacity: _anim,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 5.r,
+            height: 5.r,
+            decoration: BoxDecoration(
+              color: widget.color,
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(
+                  color: widget.color.withValues(alpha: 0.6),
+                  blurRadius: 4,
+                )
+              ],
+            ),
+          ),
+          SizedBox(width: 3.w),
+          Text(
+            'LIVE',
+            style: TextStyle(
+              color: widget.color,
+              fontSize: 6.5.sp,
+              fontWeight: FontWeight.w900,
+              letterSpacing: 0.5,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 // ── Email Masking Helper ───────────────────────────────────
 String _maskEmail(String email) {
   if (email.isEmpty) return '';
@@ -1254,7 +1779,10 @@ class PlatformStatsBox extends StatefulWidget {
 }
 
 class _PlatformStatsBoxState extends State<PlatformStatsBox> {
-  Timer? _timer;
+  Timer? _timerUserOnline; // every 5 seconds
+  Timer? _timerCopiedTrades; // every 2 seconds
+  Timer? _timerMarketFunding; // every 10 seconds
+  Timer? _timerColdWallet; // every 1 second
   StreamSubscription<List<Map<String, dynamic>>>? _dbSubscription;
 
   // Ranges (can be updated from Supabase)
@@ -1300,8 +1828,55 @@ class _PlatformStatsBoxState extends State<PlatformStatsBox> {
     _initCopiedTrades();
     _listenToDbRanges();
 
-    _timer = Timer.periodic(const Duration(seconds: 2), (timer) {
-      _generateRandomValues();
+    // Row 1 – User Online: every 5 seconds
+    _timerUserOnline = Timer.periodic(const Duration(seconds: 5), (_) {
+      if (!mounted) return;
+      setState(() {
+        _prevUserOnline = _userOnline;
+        int delta =
+            userDeltaMin + _random.nextInt(userDeltaMax - userDeltaMin + 1);
+        if (_random.nextBool()) delta = -delta;
+        _userOnline = (_userOnline + delta).clamp(userMin, userMax);
+      });
+    });
+
+    // Row 2 – Copied Trades: every 2 seconds
+    _timerCopiedTrades = Timer.periodic(const Duration(seconds: 2), (_) {
+      if (!mounted) return;
+      setState(() {
+        _prevCopiedTrades = _copiedTrades;
+        int delta = copiedDeltaMin +
+            _random.nextInt(copiedDeltaMax - copiedDeltaMin + 1);
+        _copiedTrades += delta;
+        if (_copiedTrades > copiedMax) _copiedTrades = copiedMax;
+        final now = DateTime.now();
+        final endOfDay = DateTime(now.year, now.month, now.day, 23, 59, 59);
+        if (endOfDay.difference(now).inSeconds <= 0) _copiedTrades = copiedMin;
+      });
+    });
+
+    // Row 3 – Market Funding: every 10 seconds
+    _timerMarketFunding = Timer.periodic(const Duration(seconds: 10), (_) {
+      if (!mounted) return;
+      setState(() {
+        _prevMarketFunding = _marketFunding;
+        double delta = marketDeltaMin +
+            _random.nextDouble() * (marketDeltaMax - marketDeltaMin);
+        if (_random.nextBool()) delta = -delta;
+        _marketFunding = (_marketFunding + delta).clamp(marketMin, marketMax);
+      });
+    });
+
+    // Row 4 – Cold Wallet: every 1 second
+    _timerColdWallet = Timer.periodic(const Duration(seconds: 3), (_) {
+      if (!mounted) return;
+      setState(() {
+        _prevColdWallet = _coldWallet;
+        int delta =
+            coldDeltaMin + _random.nextInt(coldDeltaMax - coldDeltaMin + 1);
+        if (_random.nextBool()) delta = -delta;
+        _coldWallet = (_coldWallet + delta).clamp(coldMin, coldMax);
+      });
     });
   }
 
@@ -1363,50 +1938,12 @@ class _PlatformStatsBoxState extends State<PlatformStatsBox> {
     _prevCopiedTrades = _copiedTrades;
   }
 
-  void _generateRandomValues() {
-    if (!mounted) return;
-    setState(() {
-      _prevUserOnline = _userOnline;
-      _prevCopiedTrades = _copiedTrades;
-      _prevMarketFunding = _marketFunding;
-      _prevColdWallet = _coldWallet;
-
-      // 1. User Online
-      int userDelta =
-          userDeltaMin + _random.nextInt(userDeltaMax - userDeltaMin + 1);
-      if (_random.nextBool()) userDelta = -userDelta;
-      _userOnline = (_userOnline + userDelta).clamp(userMin, userMax);
-
-      // 2. Copied Trades (Always Ascending)
-      int copiedDelta =
-          copiedDeltaMin + _random.nextInt(copiedDeltaMax - copiedDeltaMin + 1);
-      _copiedTrades += copiedDelta;
-      if (_copiedTrades > copiedMax) _copiedTrades = copiedMax;
-
-      final now = DateTime.now();
-      final endOfDay = DateTime(now.year, now.month, now.day, 23, 59, 59);
-      if (endOfDay.difference(now).inSeconds <= 0) {
-        _copiedTrades = copiedMin;
-      }
-
-      // 3. Market Funding
-      double marketDelta = marketDeltaMin +
-          _random.nextDouble() * (marketDeltaMax - marketDeltaMin);
-      if (_random.nextBool()) marketDelta = -marketDelta;
-      _marketFunding =
-          (_marketFunding + marketDelta).clamp(marketMin, marketMax);
-
-      // 4. Cold Wallet
-      int coldDelta =
-          coldDeltaMin + _random.nextInt(coldDeltaMax - coldDeltaMin + 1);
-      if (_random.nextBool()) coldDelta = -coldDelta;
-      _coldWallet = (_coldWallet + coldDelta).clamp(coldMin, coldMax);
-    });
-  }
-
   @override
   void dispose() {
-    _timer?.cancel();
+    _timerUserOnline?.cancel();
+    _timerCopiedTrades?.cancel();
+    _timerMarketFunding?.cancel();
+    _timerColdWallet?.cancel();
     _dbSubscription?.cancel();
     super.dispose();
   }

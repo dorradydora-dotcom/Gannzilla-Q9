@@ -3,6 +3,7 @@ import '../../features/auth/controllers/auth_controller.dart';
 import '../../features/splash/splash_screen.dart';
 import '../../features/auth/screens/register_screen.dart';
 import '../../features/home/screens/home_screen.dart';
+import '../../features/home/screens/whale_feed_screen.dart';
 import '../widgets/exit_confirmation_wrapper.dart';
 import '../../features/splash/no_internet_screen.dart';
 
@@ -33,11 +34,22 @@ class AppRouter {
         ),
         GoRoute(
           path: '/register',
-          builder: (context, state) => const ExitConfirmationWrapper(child: RegisterScreen()),
+          builder: (context, state) =>
+              const ExitConfirmationWrapper(child: RegisterScreen()),
         ),
         GoRoute(
           path: '/home',
-          builder: (context, state) => const ExitConfirmationWrapper(child: HomeScreen()),
+          builder: (context, state) =>
+              const ExitConfirmationWrapper(child: HomeScreen()),
+        ),
+        GoRoute(
+          path: '/whale-feed',
+          builder: (context, state) {
+            final tab = int.tryParse(
+                    state.uri.queryParameters['tab'] ?? '0') ??
+                0;
+            return WhaleFeedScreen(initialTab: tab);
+          },
         ),
       ],
     );
