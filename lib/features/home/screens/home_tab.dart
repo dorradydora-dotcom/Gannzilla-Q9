@@ -1,5 +1,9 @@
 import 'dart:async';
+import 'dart:convert';
+import 'dart:math';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:provider/provider.dart';
 import '../../../core/constants/app_colors.dart';
@@ -38,130 +42,144 @@ class HomeTab extends StatelessWidget {
               builder: (context, auth, _) {
                 final email = auth.currentUser?.email ?? '';
                 final maskedEmail = _maskEmail(email);
-                return Column(
+                return Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    // App Logo + copyright
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        GannZillaText(
-                            fontSize: 24,
-                            letterSpacing: 0.5,
-                            isWhiteAndRed: true),
-                        SizedBox(width: 2.w),
-                        // © circle — superscript style
-                        Padding(
-                          padding: EdgeInsets.only(bottom: 9.h),
-                          child: Container(
-                            width: 13.r,
-                            height: 13.r,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              border: Border.all(
-                                color: AppColors.textPrimary,
-                                width: 1,
-                              ),
-                            ),
-                            child: FittedBox(
-                              fit: BoxFit.scaleDown,
-                              child: Padding(
-                                padding: EdgeInsets.all(2.r),
-                                child: Text(
-                                  'C',
-                                  style: TextStyle(
-                                    fontSize: 10.sp,
-                                    color: AppColors.textPrimary,
-                                    fontWeight: FontWeight.w700,
-                                    height: 1,
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          SizedBox(height: 15.h),
+                          // App Logo + copyright
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            children: [
+                              GannZillaText(
+                                  fontSize: 24,
+                                  letterSpacing: 0.5,
+                                  isWhiteAndRed: true),
+                              SizedBox(width: 2.w),
+                              // © circle — superscript style
+                              Padding(
+                                padding: EdgeInsets.only(bottom: 9.h),
+                                child: Container(
+                                  width: 13.r,
+                                  height: 13.r,
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    border: Border.all(
+                                      color: AppColors.textPrimary,
+                                      width: 1,
+                                    ),
+                                  ),
+                                  child: FittedBox(
+                                    fit: BoxFit.scaleDown,
+                                    child: Padding(
+                                      padding: EdgeInsets.all(2.r),
+                                      child: Text(
+                                        'C',
+                                        style: TextStyle(
+                                          fontSize: 10.sp,
+                                          color: AppColors.textPrimary,
+                                          fontWeight: FontWeight.w700,
+                                          height: 1,
+                                        ),
+                                      ),
+                                    ),
                                   ),
                                 ),
                               ),
+                            ],
+                          ),
+
+                          // Version
+                          Transform.translate(
+                            offset: Offset(0, -3.h),
+                            child: Text(
+                              '   V 1.121 [yakatwa]',
+                              style: TextStyle(
+                                fontSize: 10.sp,
+                                color: Colors.blue,
+                                fontWeight: FontWeight.w400,
+                                letterSpacing: 0.3,
+                              ),
                             ),
                           ),
-                        ),
-                      ],
-                    ),
 
-                    // Version
-                    Transform.translate(
-                      offset: Offset(0, -3.h),
-                      child: Text(
-                        '   V 1.121 [yakatwa]',
-                        style: TextStyle(
-                          fontSize: 10.sp,
-                          color: Colors.blue,
-                          fontWeight: FontWeight.w400,
-                          letterSpacing: 0.3,
-                        ),
+                          Row(
+                            children: [
+                              Flexible(
+                                child: Text(
+                                  " User : $maskedEmail",
+                                  style: TextStyle(
+                                    fontSize: 13.sp,
+                                    color: AppColors.textHint,
+                                    fontWeight: FontWeight.w400,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              SizedBox(width: 8.w),
+                              // Subscription status button
+                              Builder(builder: (context) {
+                                final isSubscribed = context
+                                    .watch<AuthController>()
+                                    .isSubscribed;
+                                final color = isSubscribed
+                                    ? const Color(0xFF4CAF50)
+                                    : AppColors.error;
+                                final label = isSubscribed
+                                    ? 'Subscribed ✓'
+                                    : 'Unsubscribed';
+                                return GestureDetector(
+                                  onTap: () {
+                                    // TODO: handle subscribe / unsubscribe
+                                  },
+                                  child: Container(
+                                    padding: EdgeInsets.symmetric(
+                                        horizontal: 8.w, vertical: 2.h),
+                                    decoration: BoxDecoration(
+                                      color: color.withValues(alpha: 0.12),
+                                      borderRadius: BorderRadius.circular(20.r),
+                                      border: Border.all(
+                                          color: color.withValues(alpha: 0.5),
+                                          width: 0.8),
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Container(
+                                          width: 6.r,
+                                          height: 6.r,
+                                          decoration: BoxDecoration(
+                                            color: color,
+                                            shape: BoxShape.circle,
+                                          ),
+                                        ),
+                                        SizedBox(width: 4.w),
+                                        Text(
+                                          label,
+                                          style: TextStyle(
+                                            fontSize: 9.sp,
+                                            fontWeight: FontWeight.w600,
+                                            color: color,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                );
+                              }),
+                            ],
+                          )
+                        ],
                       ),
                     ),
-
-                    Row(
-                      children: [
-                        Flexible(
-                          child: Text(
-                            " User : $maskedEmail",
-                            style: TextStyle(
-                              fontSize: 13.sp,
-                              color: AppColors.textHint,
-                              fontWeight: FontWeight.w400,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                        SizedBox(width: 8.w),
-                        // Subscription status button
-                        Builder(builder: (context) {
-                          final isSubscribed =
-                              context.watch<AuthController>().isSubscribed;
-                          final color = isSubscribed
-                              ? const Color(0xFF4CAF50)
-                              : AppColors.error;
-                          final label =
-                              isSubscribed ? 'Subscribed ✓' : 'Unsubscribed';
-                          return GestureDetector(
-                            onTap: () {
-                              // TODO: handle subscribe / unsubscribe
-                            },
-                            child: Container(
-                              padding: EdgeInsets.symmetric(
-                                  horizontal: 8.w, vertical: 2.h),
-                              decoration: BoxDecoration(
-                                color: color.withValues(alpha: 0.12),
-                                borderRadius: BorderRadius.circular(20.r),
-                                border: Border.all(
-                                    color: color.withValues(alpha: 0.5),
-                                    width: 0.8),
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Container(
-                                    width: 6.r,
-                                    height: 6.r,
-                                    decoration: BoxDecoration(
-                                      color: color,
-                                      shape: BoxShape.circle,
-                                    ),
-                                  ),
-                                  SizedBox(width: 4.w),
-                                  Text(
-                                    label,
-                                    style: TextStyle(
-                                      fontSize: 9.sp,
-                                      fontWeight: FontWeight.w600,
-                                      color: color,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          );
-                        }),
-                      ],
-                    )
+                    SizedBox(width: 8.w),
+                    // Live stats box
+                    const PlatformStatsBox(),
                   ],
                 );
               },
@@ -172,10 +190,13 @@ class HomeTab extends StatelessWidget {
         // ── Market Tickers ────────────────────────────────
         SliverToBoxAdapter(
           child: Padding(
-            padding: EdgeInsets.only(top: 20.h, bottom: 8.h),
+            padding: EdgeInsets.only(top: 12.h, bottom: 12.h),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                // News Ticker
+                const NewsMarqueeWidget(),
+                SizedBox(height: 4.h),
                 // ── Headline ──
                 Padding(
                   padding: EdgeInsets.only(left: 20.w, bottom: 10.h),
@@ -206,7 +227,7 @@ class HomeTab extends StatelessWidget {
                     },
                   ),
                 ),
-                SizedBox(height: 10.h),
+                SizedBox(height: 2.h),
                 // Forex strip — static
                 SizedBox(
                   height: 50.h,
@@ -224,7 +245,7 @@ class HomeTab extends StatelessWidget {
                     },
                   ),
                 ),
-                SizedBox(height: 10.h),
+                SizedBox(height: 2.h),
                 // Metals strip — static
                 SizedBox(
                   height: 50.h,
@@ -251,64 +272,47 @@ class HomeTab extends StatelessWidget {
         // ── Hero Banner ───────────────────────────────────
         SliverToBoxAdapter(
           child: Padding(
-            padding: EdgeInsets.fromLTRB(30.w, 20.h, 30.w, 0),
+            padding: EdgeInsets.fromLTRB(24.w, 12.h, 24.w, 0),
             child: AnimatedBuilder(
               animation: glowAnim,
               builder: (_, __) => Container(
                 decoration: BoxDecoration(
                   gradient: const LinearGradient(
                     colors: [
-                      Colors.teal,
-                      Colors.teal,
-                      Colors.black,
-                      AppColors.accent
+                      Color(0xFF101828), // Very dark navy
+                      Color(0xFF1D2939), // Dark slate gray
                     ],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   ),
-                  borderRadius: BorderRadius.only(
-                    topLeft: Radius.circular(40.r),
-                    bottomRight: Radius.circular(40.r),
+                  borderRadius: BorderRadius.circular(16.r),
+                  border: Border.all(
+                    color: const Color(0xFFD4AF37)
+                        .withValues(alpha: 0.15 + (glowAnim.value * 0.15)),
+                    width: 1,
                   ),
                   boxShadow: [
                     BoxShadow(
-                      color: const Color.fromARGB(255, 216, 215, 238)
-                          .withValues(alpha: glowAnim.value),
-                      blurRadius: 28.r,
-                      spreadRadius: 2.r,
+                      color: Colors.black.withValues(alpha: 0.4),
+                      blurRadius: 15.r,
                       offset: Offset(0, 8.h),
                     ),
                   ],
                 ),
                 child: Stack(
                   children: [
-                    // Decorative circles
                     Positioned(
-                      right: -20.w,
-                      top: -20.h,
-                      child: Container(
-                        width: 110.r,
-                        height: 110.r,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: Colors.white.withValues(alpha: 0.1),
-                        ),
-                      ),
-                    ),
-                    Positioned(
-                      right: 35.w,
-                      bottom: -35.h,
-                      child: Container(
-                        width: 80.r,
-                        height: 80.r,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: Colors.white.withValues(alpha: 0.07),
-                        ),
+                      right: -30.w,
+                      top: -10.h,
+                      child: Icon(
+                        Icons.trending_up_rounded,
+                        size: 140.r,
+                        color: Colors.white.withValues(alpha: 0.03),
                       ),
                     ),
                     Padding(
-                      padding: EdgeInsets.all(24.r),
+                      padding: EdgeInsets.symmetric(
+                          horizontal: 20.w, vertical: 16.h),
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -318,35 +322,53 @@ class HomeTab extends StatelessWidget {
                             children: [
                               Text('Welcome to ',
                                   style: TextStyle(
-                                      fontSize: 14.sp,
-                                      color: const Color.fromARGB(
-                                          235, 255, 255, 255))),
-                              GannZillaText(fontSize: 20, isWhiteAndRed: true)
+                                    fontSize: 12.sp,
+                                    color: Colors.white70,
+                                    fontWeight: FontWeight.w500,
+                                  )),
+                              GannZillaText(fontSize: 16, isWhiteAndRed: true)
                             ],
                           ),
-                          SizedBox(height: 2.h),
+                          SizedBox(height: 6.h),
                           Text(
-                            AppStrings.bannerSubtitle,
+                            'Professional grade tools for crypto & forex markets',
                             style: TextStyle(
                               fontSize: 10.sp,
-                              color: Colors.white70,
-                              height: 1.5,
+                              color: Colors.white60,
+                              height: 1.4,
+                              letterSpacing: 0.2,
                             ),
                           ),
-                          SizedBox(height: 4.h),
+                          SizedBox(height: 12.h),
                           Container(
                             padding: EdgeInsets.symmetric(
-                                horizontal: 12.w, vertical: 6.h),
+                                horizontal: 14.w, vertical: 6.h),
                             decoration: BoxDecoration(
-                              color: Colors.white.withValues(alpha: 0.2),
-                              borderRadius: BorderRadius.circular(20.r),
+                              gradient: const LinearGradient(
+                                colors: [
+                                  Color(0xFFD4AF37), // Gold
+                                  Color(0xFFAA771C), // Dark Gold
+                                ],
+                                begin: Alignment.centerLeft,
+                                end: Alignment.centerRight,
+                              ),
+                              borderRadius: BorderRadius.circular(8.r),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: const Color(0xFFD4AF37)
+                                      .withValues(alpha: 0.3),
+                                  blurRadius: 8.r,
+                                  offset: Offset(0, 3.h),
+                                ),
+                              ],
                             ),
                             child: Text(
-                              'Subscribe Now to unlock GannZilla →',
+                              'Upgrade to Premium',
                               style: TextStyle(
-                                color: Colors.cyanAccent,
-                                fontSize: 11.sp,
-                                fontWeight: FontWeight.w700,
+                                color: Colors.black87,
+                                fontSize: 10.sp,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: 0.3,
                               ),
                             ),
                           ),
@@ -363,22 +385,19 @@ class HomeTab extends StatelessWidget {
         // ── Quick Actions ────────────────────────────────
         SliverToBoxAdapter(
           child: Padding(
-            padding: EdgeInsets.fromLTRB(24.w, 24.h, 24.w, 0),
+            padding: EdgeInsets.fromLTRB(24.w, 12.h, 24.w, 0),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                SectionHeader(
-                  title: AppStrings.quickActions,
-                  actionLabel: 'See all',
-                ),
-                SizedBox(height: 16.h),
+                SectionHeader(title: AppStrings.headSectors),
+                SizedBox(height: 4.h),
                 GridView.count(
                   shrinkWrap: true,
                   physics: const NeverScrollableScrollPhysics(),
-                  crossAxisCount: 2,
-                  crossAxisSpacing: 14.w,
-                  mainAxisSpacing: 14.h,
-                  childAspectRatio: 1.35,
+                  crossAxisCount: 4,
+                  crossAxisSpacing: 8.w,
+                  mainAxisSpacing: 10.h,
+                  childAspectRatio: 0.85,
                   children: const [
                     QuickActionCard(
                       icon: Icons.currency_bitcoin_rounded,
@@ -393,10 +412,10 @@ class HomeTab extends StatelessWidget {
                       gradient: AppColors.primaryGradient,
                     ),
                     QuickActionCard(
-                      icon: Icons.newspaper_rounded,
-                      label: AppStrings.news,
-                      subtitle: 'Breaking market news',
-                      gradient: AppColors.newsGradient,
+                      icon: Icons.diamond_rounded,
+                      label: AppStrings.metals,
+                      subtitle: 'Gold, Silver & more',
+                      gradient: AppColors.metalsGradient,
                     ),
                     QuickActionCard(
                       icon: Icons.water_rounded,
@@ -414,15 +433,12 @@ class HomeTab extends StatelessWidget {
         // ── Whale Activity Feed ───────────────────────────
         SliverToBoxAdapter(
           child: Padding(
-            padding: EdgeInsets.fromLTRB(24.w, 28.h, 24.w, 0),
+            padding: EdgeInsets.fromLTRB(24.w, 14.h, 24.w, 0),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                SectionHeader(
-                  title: '🐋 Whale Activity',
-                  actionLabel: 'View all',
-                ),
-                SizedBox(height: 12.h),
+                SectionHeader(title: '🐋 Whale Activity'),
+                SizedBox(height: 6.h),
                 ...whaleAlerts.map((alert) => WhaleAlertTile(data: alert)),
               ],
             ),
@@ -438,33 +454,19 @@ class HomeTab extends StatelessWidget {
 // ─── Section Header ───────────────────────────────────────
 class SectionHeader extends StatelessWidget {
   final String title;
-  final String actionLabel;
-  const SectionHeader(
-      {super.key, required this.title, required this.actionLabel});
+
+  const SectionHeader({super.key, required this.title});
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(
-          title,
+    return Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+      Text(title,
           style: TextStyle(
             fontSize: 17.sp,
             fontWeight: FontWeight.w700,
             color: AppColors.textPrimary,
-          ),
-        ),
-        Text(
-          actionLabel,
-          style: TextStyle(
-            fontSize: 13.sp,
-            color: AppColors.primary,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-      ],
-    );
+          ))
+    ]);
   }
 }
 
@@ -795,64 +797,106 @@ class QuickActionCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      decoration: BoxDecoration(
-        gradient: gradient,
-        borderRadius: BorderRadius.circular(18.r),
-        boxShadow: [
-          BoxShadow(
-            color: gradient.colors[0].withValues(alpha: 0.3),
-            blurRadius: 12.r,
-            offset: Offset(0, 5.h),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(16.r),
+          gradient: const LinearGradient(
+            colors: [
+              Color(0xFFE0E0E0), // Light silver
+              Color(0xFF757575), // Dark silver
+              Color(0xFFFFFFFF), // Bright reflection
+              Color(0xFF9E9E9E), // Medium silver
+            ],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
           ),
-        ],
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(18.r),
-          onTap: () {},
-          child: Padding(
-            padding: EdgeInsets.all(16.r),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Container(
-                  width: 38.r,
-                  height: 38.r,
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.2),
-                    borderRadius: BorderRadius.circular(10.r),
-                  ),
-                  child: Icon(icon, color: Colors.white, size: 22.r),
-                ),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.3),
+              blurRadius: 10.r,
+              offset: Offset(0, 4.h),
+            ),
+          ],
+        ),
+        padding: const EdgeInsets.all(0.6), // Shiny border width
+        child: Container(
+          decoration: BoxDecoration(
+            color: AppColors.bgCard,
+            borderRadius: BorderRadius.circular(15.r),
+          ),
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(15.r),
+              onTap: () {},
+              child: Padding(
+                padding: EdgeInsets.all(8.r),
+                child: Stack(
                   children: [
-                    Text(
-                      label,
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 14.sp,
-                        fontWeight: FontWeight.w800,
+                    Positioned(
+                      right: 0,
+                      top: 0,
+                      child: Icon(
+                        Icons.arrow_outward_rounded,
+                        color: AppColors.textHint.withValues(alpha: 0.5),
+                        size: 14.r,
                       ),
                     ),
-                    SizedBox(height: 2.h),
-                    Text(
-                      subtitle,
-                      style: TextStyle(
-                        color: Colors.white70,
-                        fontSize: 10.sp,
-                      ),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Container(
+                          width: 24.r,
+                          height: 24.r,
+                          decoration: BoxDecoration(
+                            gradient: gradient,
+                            borderRadius: BorderRadius.circular(10.r),
+                            boxShadow: [
+                              BoxShadow(
+                                color:
+                                    gradient.colors[0].withValues(alpha: 0.4),
+                                blurRadius: 8.r,
+                                offset: Offset(0, 3.h),
+                              ),
+                            ],
+                          ),
+                          child: Icon(icon, color: Colors.white, size: 14.r),
+                        ),
+                        SizedBox(height: 8.h),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              label,
+                              style: TextStyle(
+                                color: AppColors.textPrimary,
+                                fontSize: 10.sp,
+                                fontWeight: FontWeight.w700,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            SizedBox(height: 1.h),
+                            Text(
+                              subtitle,
+                              style: TextStyle(
+                                color: AppColors.textSecondary,
+                                fontSize: 7.sp,
+                                height: 1.2,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ],
+                        ),
+                      ],
                     ),
                   ],
                 ),
-              ],
+              ),
             ),
           ),
-        ),
-      ),
-    );
+        ));
   }
 }
 
@@ -959,4 +1003,471 @@ String _maskEmail(String email) {
   // أظهر أول 3 حروف + 5 نجوم + .com
   final prefix = email.length >= 3 ? email.substring(0, 3) : email;
   return '$prefix*****.com';
+}
+
+// ─── News Marquee ─────────────────────────────────────────
+class NewsMarqueeWidget extends StatefulWidget {
+  const NewsMarqueeWidget({super.key});
+
+  @override
+  State<NewsMarqueeWidget> createState() => _NewsMarqueeWidgetState();
+}
+
+class _NewsMarqueeWidgetState extends State<NewsMarqueeWidget> {
+  List<String> _news = [];
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchNews();
+  }
+
+  Future<void> _fetchNews() async {
+    final List<String> fallbackNews = [
+      "Bitcoin breaks \$70,000 resistance amidst institutional buying",
+      "Ethereum network upgrade scheduled for next month",
+      "Forex markets volatile as Federal Reserve holds interest rates",
+      "Gold reaches new all-time high amid inflation fears",
+      "Major crypto exchange announces integration with traditional banking",
+      "US Dollar Index strengthens following positive jobs report"
+    ];
+
+    try {
+      final response = await http
+          .get(Uri.parse(
+              'https://min-api.cryptocompare.com/data/v2/news/?lang=EN'))
+          .timeout(const Duration(seconds: 3));
+
+      if (response.statusCode == 200 && mounted) {
+        final data = json.decode(response.body);
+        if (data['Data'] != null) {
+          final newsList = data['Data'] as List;
+          setState(() {
+            _news = newsList
+                .map((item) => item['title'].toString())
+                .take(15)
+                .toList();
+            if (_news.isEmpty) _news = fallbackNews;
+            _isLoading = false;
+          });
+          return;
+        }
+      }
+    } catch (e) {
+      // Ignored, will use fallback
+    }
+
+    if (mounted) {
+      setState(() {
+        _isLoading = false;
+        _news = fallbackNews;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_isLoading && _news.isEmpty) {
+      _news = [
+        "Bitcoin breaks \$70,000 resistance amidst institutional buying",
+        "Ethereum network upgrade scheduled for next month",
+        "Forex markets volatile as Federal Reserve holds interest rates",
+        "Gold reaches new all-time high amid inflation fears",
+        "Major crypto exchange announces integration with traditional banking",
+        "US Dollar Index strengthens following positive jobs report"
+      ];
+    }
+
+    if (_news.isEmpty) return const SizedBox.shrink();
+
+    return Container(
+      width: double.infinity,
+      child: ShaderMask(
+        shaderCallback: (Rect bounds) {
+          return const LinearGradient(
+            begin: Alignment.centerLeft,
+            end: Alignment.centerRight,
+            colors: [
+              Colors.transparent,
+              Colors.white,
+              Colors.white,
+              Colors.transparent
+            ],
+            stops: [0.0, 0.15, 0.85, 1.0],
+          ).createShader(bounds);
+        },
+        blendMode: BlendMode.dstIn,
+        child: CustomPaint(
+          painter: _ArcLinesPainter(),
+          child: SizedBox(
+            height: 26.h,
+            child: _NewsScroller(newsItems: _news),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ArcLinesPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = Colors.white.withValues(alpha: 0.3)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.0;
+
+    final shadowPaint = Paint()
+      ..color = Colors.white.withValues(alpha: 0.1)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.0
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2.0);
+
+    // Very slight upward curve (starts/ends at 2, peaks at -1.0)
+    final topPath = Path()
+      ..moveTo(0, 2.0)
+      ..quadraticBezierTo(size.width / 2, -1.0, size.width, 2.0);
+
+    // Very slight downward curve (starts/ends at height-2, peaks at height+1.0)
+    final bottomPath = Path()
+      ..moveTo(0, size.height - 2.0)
+      ..quadraticBezierTo(
+          size.width / 2, size.height + 1.0, size.width, size.height - 2.0);
+
+    canvas.drawPath(topPath, shadowPaint);
+    canvas.drawPath(bottomPath, shadowPaint);
+
+    canvas.drawPath(topPath, paint);
+    canvas.drawPath(bottomPath, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
+
+class _NewsScroller extends StatefulWidget {
+  final List<String> newsItems;
+  const _NewsScroller({required this.newsItems});
+
+  @override
+  State<_NewsScroller> createState() => _NewsScrollerState();
+}
+
+class _NewsScrollerState extends State<_NewsScroller> {
+  final ScrollController _controller = ScrollController();
+  bool _running = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _startScroll());
+  }
+
+  Future<void> _startScroll() async {
+    if (_running) return;
+    _running = true;
+    while (mounted && _running) {
+      if (!_controller.hasClients) {
+        await Future.delayed(const Duration(milliseconds: 100));
+        continue;
+      }
+      final max = _controller.position.maxScrollExtent;
+      if (max <= 0) {
+        await Future.delayed(const Duration(milliseconds: 200));
+        continue;
+      }
+      final current = _controller.offset;
+      final remaining = max - current;
+      if (remaining <= 0) {
+        _controller.jumpTo(0);
+        continue;
+      }
+      final durationMs = (remaining / 10 * 1000)
+          .round(); // 30 pixels per second for slow scrolling
+      await _controller.animateTo(
+        max,
+        duration: Duration(milliseconds: durationMs),
+        curve: Curves.linear,
+      );
+      if (!mounted) break;
+      _controller.jumpTo(0);
+    }
+    _running = false;
+  }
+
+  @override
+  void dispose() {
+    _running = false;
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // Repeat items multiple times to create an infinite scroll illusion
+    final repeatedNews = [
+      ...widget.newsItems,
+      ...widget.newsItems,
+      ...widget.newsItems,
+      ...widget.newsItems,
+      ...widget.newsItems,
+    ];
+
+    return ListView.separated(
+      controller: _controller,
+      scrollDirection: Axis.horizontal,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: repeatedNews.length,
+      separatorBuilder: (_, __) => Padding(
+        padding: EdgeInsets.symmetric(horizontal: 16.w),
+        child: Center(
+          child: Text(
+            '#',
+            style: TextStyle(
+              color: Colors.orange.withValues(alpha: 0.4),
+              fontSize: 16.sp,
+            ),
+          ),
+        ),
+      ),
+      itemBuilder: (_, i) => Center(
+        child: Text(
+          repeatedNews[i],
+          style: TextStyle(
+            color: Colors.orange.withValues(alpha: 0.7), // Faded orange text
+            fontSize: 11.sp, // Thin/small
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Platform Stats Box ────────────────────────────────────
+class PlatformStatsBox extends StatefulWidget {
+  const PlatformStatsBox({super.key});
+
+  @override
+  State<PlatformStatsBox> createState() => _PlatformStatsBoxState();
+}
+
+class _PlatformStatsBoxState extends State<PlatformStatsBox> {
+  Timer? _timer;
+  StreamSubscription<List<Map<String, dynamic>>>? _dbSubscription;
+
+  // Ranges (can be updated from Supabase)
+  int userMin = 3600;
+  int userMax = 16000;
+  int userDeltaMin = 2;
+  int userDeltaMax = 13;
+
+  int copiedMin = 620;
+  int copiedMax = 69871;
+  int copiedDeltaMin = 23;
+  int copiedDeltaMax = 60;
+
+  double marketMin = 0.3;
+  double marketMax = 5.0;
+  double marketDeltaMin = 0.02;
+  double marketDeltaMax = 0.09;
+
+  int coldMin = 135;
+  int coldMax = 892;
+  int coldDeltaMin = 5;
+  int coldDeltaMax = 8;
+
+  int _userOnline = 3600;
+  int _copiedTrades = 620;
+  double _marketFunding = 0.3;
+  int _coldWallet = 135;
+
+  int _prevUserOnline = 3600;
+  int _prevCopiedTrades = 620;
+  double _prevMarketFunding = 0.3;
+  int _prevColdWallet = 135;
+
+  final Random _random = Random();
+
+  @override
+  void initState() {
+    super.initState();
+    _userOnline = userMin + _random.nextInt(userMax - userMin + 1);
+    _marketFunding = marketMin + _random.nextDouble() * (marketMax - marketMin);
+    _coldWallet = coldMin + _random.nextInt(coldMax - coldMin + 1);
+
+    _initCopiedTrades();
+    _listenToDbRanges();
+
+    _timer = Timer.periodic(const Duration(seconds: 2), (timer) {
+      _generateRandomValues();
+    });
+  }
+
+  void _listenToDbRanges() {
+    try {
+      _dbSubscription = Supabase.instance.client
+          .from('platform_stats_ranges')
+          .stream(primaryKey: ['id'])
+          .eq('id', 1)
+          .listen((data) {
+            if (data.isNotEmpty && mounted) {
+              final row = data.first;
+              setState(() {
+                userMin = row['user_online_min'] ?? userMin;
+                userMax = row['user_online_max'] ?? userMax;
+                userDeltaMin = row['user_online_delta_min'] ?? userDeltaMin;
+                userDeltaMax = row['user_online_delta_max'] ?? userDeltaMax;
+
+                copiedMin = row['copied_trades_min'] ?? copiedMin;
+                copiedMax = row['copied_trades_max'] ?? copiedMax;
+                copiedDeltaMin =
+                    row['copied_trades_delta_min'] ?? copiedDeltaMin;
+                copiedDeltaMax =
+                    row['copied_trades_delta_max'] ?? copiedDeltaMax;
+
+                marketMin = (row['market_funding_min'] ?? marketMin).toDouble();
+                marketMax = (row['market_funding_max'] ?? marketMax).toDouble();
+                marketDeltaMin =
+                    (row['market_funding_delta_min'] ?? marketDeltaMin)
+                        .toDouble();
+                marketDeltaMax =
+                    (row['market_funding_delta_max'] ?? marketDeltaMax)
+                        .toDouble();
+
+                coldMin = row['cold_wallet_min'] ?? coldMin;
+                coldMax = row['cold_wallet_max'] ?? coldMax;
+                coldDeltaMin = row['cold_wallet_delta_min'] ?? coldDeltaMin;
+                coldDeltaMax = row['cold_wallet_delta_max'] ?? coldDeltaMax;
+
+                _userOnline = _userOnline.clamp(userMin, userMax);
+                _marketFunding = _marketFunding.clamp(marketMin, marketMax);
+                _coldWallet = _coldWallet.clamp(coldMin, coldMax);
+              });
+            }
+          });
+    } catch (e) {
+      // Ignored if Supabase isn't initialized or fails
+    }
+  }
+
+  void _initCopiedTrades() {
+    final now = DateTime.now();
+    final startOfDay = DateTime(now.year, now.month, now.day);
+    final elapsedSeconds = now.difference(startOfDay).inSeconds;
+    final totalSecondsInDay = 24 * 60 * 60;
+
+    final progress = elapsedSeconds / totalSecondsInDay;
+    _copiedTrades = copiedMin + ((copiedMax - copiedMin) * progress).round();
+    _prevCopiedTrades = _copiedTrades;
+  }
+
+  void _generateRandomValues() {
+    if (!mounted) return;
+    setState(() {
+      _prevUserOnline = _userOnline;
+      _prevCopiedTrades = _copiedTrades;
+      _prevMarketFunding = _marketFunding;
+      _prevColdWallet = _coldWallet;
+
+      // 1. User Online
+      int userDelta =
+          userDeltaMin + _random.nextInt(userDeltaMax - userDeltaMin + 1);
+      if (_random.nextBool()) userDelta = -userDelta;
+      _userOnline = (_userOnline + userDelta).clamp(userMin, userMax);
+
+      // 2. Copied Trades (Always Ascending)
+      int copiedDelta =
+          copiedDeltaMin + _random.nextInt(copiedDeltaMax - copiedDeltaMin + 1);
+      _copiedTrades += copiedDelta;
+      if (_copiedTrades > copiedMax) _copiedTrades = copiedMax;
+
+      final now = DateTime.now();
+      final endOfDay = DateTime(now.year, now.month, now.day, 23, 59, 59);
+      if (endOfDay.difference(now).inSeconds <= 0) {
+        _copiedTrades = copiedMin;
+      }
+
+      // 3. Market Funding
+      double marketDelta = marketDeltaMin +
+          _random.nextDouble() * (marketDeltaMax - marketDeltaMin);
+      if (_random.nextBool()) marketDelta = -marketDelta;
+      _marketFunding =
+          (_marketFunding + marketDelta).clamp(marketMin, marketMax);
+
+      // 4. Cold Wallet
+      int coldDelta =
+          coldDeltaMin + _random.nextInt(coldDeltaMax - coldDeltaMin + 1);
+      if (_random.nextBool()) coldDelta = -coldDelta;
+      _coldWallet = (_coldWallet + coldDelta).clamp(coldMin, coldMax);
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    _dbSubscription?.cancel();
+    super.dispose();
+  }
+
+  Color _getColor(num current, num previous) {
+    if (current > previous) return const Color(0xFF00E676);
+    if (current < previous) return const Color(0xFFFF1744);
+    return AppColors.textPrimary;
+  }
+
+  Widget _buildRow(String label, String value, Color color) {
+    return Padding(
+      padding: EdgeInsets.symmetric(vertical: 2.h),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 9.sp,
+              color: AppColors.textHint,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          SizedBox(width: 12.w),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 10.sp,
+              color: color,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 6.h),
+      decoration: BoxDecoration(
+        color: AppColors.bgCard,
+        borderRadius: BorderRadius.circular(8.r),
+        border: Border.all(color: AppColors.borderSubtle, width: 1),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          _buildRow('User Online', '$_userOnline',
+              _getColor(_userOnline, _prevUserOnline)),
+          _buildRow('Copied Trades', '$_copiedTrades',
+              _getColor(_copiedTrades, _prevCopiedTrades)),
+          _buildRow('Market Funding', '${_marketFunding.toStringAsFixed(1)} B',
+              _getColor(_marketFunding, _prevMarketFunding)),
+          _buildRow('Cold Wallet', '$_coldWallet m',
+              _getColor(_coldWallet, _prevColdWallet)),
+        ],
+      ),
+    );
+  }
 }

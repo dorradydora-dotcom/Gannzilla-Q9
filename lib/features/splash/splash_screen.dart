@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
@@ -112,8 +113,25 @@ class _SplashScreenState extends State<SplashScreen>
     }
   }
 
-  void _navigate() {
+  Future<void> _navigate() async {
+    bool hasInternet = false;
+    try {
+      final result = await InternetAddress.lookup('example.com')
+          .timeout(const Duration(seconds: 5));
+      if (result.isNotEmpty && result[0].rawAddress.isNotEmpty) {
+        hasInternet = true;
+      }
+    } catch (_) {
+      hasInternet = false;
+    }
+
     if (!mounted) return;
+
+    if (!hasInternet) {
+      context.go('/no-internet');
+      return;
+    }
+
     final auth = context.read<AuthController>();
     if (auth.isAuthenticated) {
       context.go('/home');

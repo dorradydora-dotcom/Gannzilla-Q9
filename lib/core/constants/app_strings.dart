@@ -29,7 +29,7 @@ class AppStrings {
   static const String notifications = 'Notifications';
   static const String welcome = 'Welcome';
   static const String homeSubtitle = 'What are you looking for today?';
-  static const String quickActions = 'Quick Actions';
+  static const String headSectors = 'Trading Sectors';
   static const String bannerTitle = 'Welcome to ';
   static const String bannerSubtitle =
       'Track Whale Trades, Crypto, and Forex\nin one place';
@@ -38,8 +38,8 @@ class AppStrings {
   // Quick Action Card Labels
   static const String crypto = 'Crypto';
   static const String forex = 'Forex';
-  static const String news = 'News';
-  static const String whaleTrades = 'Whale Trades';
+  static const String metals = 'Metals';
+  static const String whaleTrades = 'Whale';
 
   // Splash Loading Messages
   static const String splashLoading1 = 'Loading core application libraries...';

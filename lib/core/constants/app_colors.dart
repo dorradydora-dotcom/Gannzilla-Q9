@@ -56,6 +56,12 @@ class AppColors {
     end: Alignment.bottomRight,
   );
 
+  static const LinearGradient metalsGradient = LinearGradient(
+    colors: [Color(0xFFD4AF37), Color(0xFFFFF0A0)],
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+  );
+
   static const LinearGradient whaleGradient = LinearGradient(
     colors: [accent, accentLight],
     begin: Alignment.topLeft,

@@ -4,6 +4,7 @@ import '../../features/splash/splash_screen.dart';
 import '../../features/auth/screens/register_screen.dart';
 import '../../features/home/screens/home_screen.dart';
 import '../widgets/exit_confirmation_wrapper.dart';
+import '../../features/splash/no_internet_screen.dart';
 
 class AppRouter {
   static GoRouter router(AuthController authController) {
@@ -13,8 +14,9 @@ class AppRouter {
         final isAuthenticated = authController.isAuthenticated;
         final isAuthRoute = state.matchedLocation == '/register';
         final isSplash = state.matchedLocation == '/splash';
+        final isNoInternet = state.matchedLocation == '/no-internet';
 
-        if (isSplash) return null;
+        if (isSplash || isNoInternet) return null;
         if (!isAuthenticated && !isAuthRoute) return '/register';
         if (isAuthenticated && isAuthRoute) return '/home';
         return null;
@@ -24,6 +26,10 @@ class AppRouter {
         GoRoute(
           path: '/splash',
           builder: (context, state) => const SplashScreen(),
+        ),
+        GoRoute(
+          path: '/no-internet',
+          builder: (context, state) => const NoInternetScreen(),
         ),
         GoRoute(
           path: '/register',
