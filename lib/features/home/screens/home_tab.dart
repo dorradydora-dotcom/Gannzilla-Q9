@@ -345,7 +345,7 @@ class HomeTab extends StatelessWidget {
                               'Subscribe Now to unlock GannZilla →',
                               style: TextStyle(
                                 color: Colors.cyanAccent,
-                                fontSize: 10.sp,
+                                fontSize: 11.sp,
                                 fontWeight: FontWeight.w700,
                               ),
                             ),
