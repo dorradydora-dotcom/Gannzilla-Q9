@@ -1,6 +1,26 @@
+import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:supabase_flutter/supabase_flutter.dart';
+
+
+class WhaleTrade {
+  final String symbol;
+  final String price;
+  final String size;
+  final bool isBuy;
+  final String time;
+
+  WhaleTrade({
+    required this.symbol,
+    required this.price,
+    required this.size,
+    required this.isBuy,
+    required this.time,
+  });
+}
 
 class TickerData {
   final String symbol;
@@ -612,5 +632,229 @@ class WhalePriceService {
     } catch (_) {}
     return {};
   }
+
+  static StreamController<WhaleTrade>? _whaleStreamController;
+  static WebSocket? _webSocket;
+  static StreamSubscription? _sub;
+  static int _listenerCount = 0;
+
+  static Stream<WhaleTrade> getCryptoWhaleTradesStream(List<String> symbols) {
+    if (_whaleStreamController == null || _whaleStreamController!.isClosed) {
+      _whaleStreamController = StreamController<WhaleTrade>.broadcast(
+        onListen: () {
+          _listenerCount++;
+          if (_listenerCount == 1) {
+            _connectWebSocket(symbols);
+          }
+        },
+        onCancel: () {
+          _listenerCount--;
+          if (_listenerCount <= 0) {
+            _closeWebSocket();
+          }
+        },
+      );
+    }
+    return _whaleStreamController!.stream;
+  }
+
+  static void _connectWebSocket(List<String> symbols) async {
+    try {
+      final streams = symbols.map((s) {
+        final lower = s.toLowerCase();
+        if (lower == 'matic') {
+          return 'polusdt@trade';
+        }
+        return '${lower}usdt@trade';
+      }).join('/');
+      final url = 'wss://stream.binance.com:9443/stream?streams=$streams';
+      _webSocket = await WebSocket.connect(url);
+      _sub = _webSocket!.listen(
+        (message) {
+          try {
+            final jsonMsg = jsonDecode(message);
+            final data = jsonMsg['data'];
+            if (data == null) return;
+            
+            final symbolRaw = data['s'] as String; // e.g. BTCUSDT
+            var symbol = symbolRaw.replaceAll('USDT', '');
+            if (symbol == 'POL') symbol = 'MATIC';
+
+            final price = double.tryParse(data['p']?.toString() ?? '') ?? 0.0;
+            final qty = double.tryParse(data['q']?.toString() ?? '') ?? 0.0;
+            final isBuy = !(data['m'] as bool);
+            final timeMs = data['T'] as int;
+            final time = DateTime.fromMillisecondsSinceEpoch(timeMs);
+            final formattedTime = '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}:${time.second.toString().padLeft(2, '0')}';
+            
+            final valueUsd = price * qty;
+            const double whaleThreshold = 50000.0; // Filter trades >= $50,000 USD
+            if (valueUsd >= whaleThreshold) {
+              String formattedPrice = price >= 1000
+                  ? price.toStringAsFixed(2)
+                  : price >= 1
+                      ? price.toStringAsFixed(4)
+                      : price.toStringAsFixed(6);
+              
+              String formattedSize;
+              if (qty >= 1000000) {
+                formattedSize = '${(qty / 1000000).toStringAsFixed(2)}M';
+              } else if (qty >= 1000) {
+                formattedSize = '${(qty / 1000).toStringAsFixed(1)}K';
+              } else {
+                formattedSize = qty.toStringAsFixed(qty >= 100 ? 1 : 2);
+              }
+
+              final trade = WhaleTrade(
+                symbol: symbol,
+                price: formattedPrice,
+                size: formattedSize,
+                isBuy: isBuy,
+                time: formattedTime,
+              );
+              _whaleStreamController?.add(trade);
+            }
+          } catch (e) {
+            debugPrint('Error parsing Binance trade: $e');
+          }
+        },
+        onError: (err) {
+          debugPrint('Binance WebSocket error: $err');
+          _closeWebSocket();
+          // Reconnect after 5 seconds if we still have listeners
+          Future.delayed(const Duration(seconds: 5), () {
+            if (_listenerCount > 0 && _webSocket == null) {
+              _connectWebSocket(symbols);
+            }
+          });
+        },
+        onDone: () {
+          debugPrint('Binance WebSocket done');
+          _closeWebSocket();
+          // Reconnect after 5 seconds if we still have listeners
+          Future.delayed(const Duration(seconds: 5), () {
+            if (_listenerCount > 0 && _webSocket == null) {
+              _connectWebSocket(symbols);
+            }
+          });
+        },
+      );
+    } catch (e) {
+      debugPrint('Error connecting to Binance WebSocket: $e');
+      // Reconnect after 5 seconds if we still have listeners
+      Future.delayed(const Duration(seconds: 5), () {
+        if (_listenerCount > 0 && _webSocket == null) {
+          _connectWebSocket(symbols);
+        }
+      });
+    }
+  }
+
+  static void _closeWebSocket() {
+    _sub?.cancel();
+    _webSocket?.close();
+    _webSocket = null;
+    _sub = null;
+  }
+
+  static Stream<List<SupabaseSignal>> getSignalsStream() {
+    return Supabase.instance.client
+        .from('signals')
+        .stream(primaryKey: ['id']).map((data) {
+      final list = data.map((json) => SupabaseSignal.fromJson(json)).toList();
+      list.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+      return list;
+    });
+  }
 }
+
+class SupabaseSignal {
+  final int id;
+  final String category;
+  final String symbol;
+  final String type; // BUY or SELL
+  final String entryPrice;
+  final String? targetPrice;
+  final String? stopLoss;
+  final String status; // 'pending' | 'win' | 'loss'
+  final String? strategy; // nullable: 'pump_coming', 'news', 'gann_pattern', 'price_action'
+  final DateTime signalTime;  // admin-set time
+  final DateTime createdAt;
+
+  SupabaseSignal({
+    required this.id,
+    required this.category,
+    required this.symbol,
+    required this.type,
+    required this.entryPrice,
+    this.targetPrice,
+    this.stopLoss,
+    this.status = 'pending',
+    this.strategy,
+    required this.signalTime,
+    required this.createdAt,
+  });
+
+  factory SupabaseSignal.fromJson(Map<String, dynamic> json) {
+    final createdAt = DateTime.parse(json['created_at'] as String);
+    return SupabaseSignal(
+      id: json['id'] as int,
+      category: json['category'] as String,
+      symbol: json['symbol'] as String,
+      type: json['type'] as String,
+      entryPrice: json['entry_price'] as String,
+      targetPrice: json['target_price'] as String?,
+      stopLoss: json['stop_loss'] as String?,
+      status: (json['status'] as String?) ?? 'pending',
+      strategy: json['strategy'] as String?,
+      signalTime: json['signal_time'] != null
+          ? DateTime.parse(json['signal_time'] as String).toLocal()
+          : createdAt.toLocal(),
+      createdAt: createdAt,
+    );
+  }
+}
+
+class StrategyInfo {
+  final String label;
+  final IconData icon;
+  final Color color;
+  const StrategyInfo({required this.label, required this.icon, required this.color});
+}
+
+StrategyInfo? getStrategyInfo(String? strategy) {
+  if (strategy == null) return null;
+  switch (strategy.toLowerCase()) {
+    case 'pump_coming':
+    case 'pump coming':
+      return const StrategyInfo(
+        label: 'Pump',
+        icon: Icons.rocket_launch_rounded,
+        color: Color(0xFFFF9800), // Glowing Orange
+      );
+    case 'news':
+      return const StrategyInfo(
+        label: 'News',
+        icon: Icons.campaign_rounded,
+        color: Color(0xFF00B0FF), // Glowing News Blue
+      );
+    case 'gann_pattern':
+    case 'gann pattern':
+      return const StrategyInfo(
+        label: 'Gann\nPattern',
+        icon: Icons.grid_3x3_rounded,
+        color: Color(0xFFE040FB), // Glowing Purple
+      );
+    case 'price_action':
+    case 'price action':
+      return const StrategyInfo(
+        label: 'Price\nAction',
+        icon: Icons.candlestick_chart_rounded,
+        color: Color(0xFF00E676), // Glowing Green
+      );
+    default:
+      return null;
+  }
+}
+
 

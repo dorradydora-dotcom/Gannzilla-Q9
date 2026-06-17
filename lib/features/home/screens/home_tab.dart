@@ -10,6 +10,7 @@ import 'package:provider/provider.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_strings.dart';
 import '../../../core/widgets/gannzilla_text.dart';
+import '../../../core/widgets/strategy_badge.dart';
 import '../../auth/controllers/auth_controller.dart';
 import '../../../core/services/market_data_service.dart';
 import 'package:shimmer/shimmer.dart';
@@ -47,7 +48,7 @@ class HomeTab extends StatelessWidget {
                             crossAxisAlignment: CrossAxisAlignment.end,
                             children: [
                               GannZillaText(
-                                  fontSize: 24,
+                                  fontSize: 30,
                                   letterSpacing: 0.5,
                                   isWhiteAndRed: true),
                               SizedBox(width: 2.w),
@@ -81,6 +82,7 @@ class HomeTab extends StatelessWidget {
                                   ),
                                 ),
                               ),
+                              _AdminCounterWidget(email: email),
                             ],
                           ),
 
@@ -493,7 +495,7 @@ class HomeTab extends StatelessWidget {
                             1.3641,
                           ],
                           unit: 'M',
-                          interval: const Duration(milliseconds: 600),
+                          interval: const Duration(milliseconds: 1800),
                         ),
                       ),
                     ),
@@ -522,7 +524,7 @@ class HomeTab extends StatelessWidget {
                             0.1642,
                           ],
                           unit: 'K',
-                          interval: const Duration(milliseconds: 450),
+                          interval: const Duration(milliseconds: 1400),
                         ),
                       ),
                     ),
@@ -551,13 +553,26 @@ class HomeTab extends StatelessWidget {
                             78.42,
                           ],
                           unit: 'oz',
-                          interval: const Duration(milliseconds: 750),
+                          interval: const Duration(milliseconds: 2500),
                         ),
                       ),
                     ),
                   ],
                 ),
               ],
+            ),
+          ),
+        ),
+
+        // ── Signals Section ───────────────────────────────
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: EdgeInsets.fromLTRB(24.w, 16.h, 24.w, 0),
+            child: Consumer<AuthController>(
+              builder: (context, auth, _) {
+                final email = auth.currentUser?.email ?? '';
+                return _SignalsFeed(adminEmail: email);
+              },
             ),
           ),
         ),
@@ -1114,22 +1129,6 @@ class WhaleAlertTile extends StatelessWidget {
   }
 }
 
-// ─── Live Trade Entry model ───────────────────────────────
-class _TradeEntry {
-  final String symbol;
-  final String price;
-  final String size;
-  final bool isBuy;
-  final String time;
-  _TradeEntry({
-    required this.symbol,
-    required this.price,
-    required this.size,
-    required this.isBuy,
-    required this.time,
-  });
-}
-
 // ─── Whale Column — live animated trade feed ──────────────
 class _WhaleColumn extends StatefulWidget {
   final String label;
@@ -1155,12 +1154,13 @@ class _WhaleColumn extends StatefulWidget {
 }
 
 class _WhaleColumnState extends State<_WhaleColumn> {
-  final GlobalKey<AnimatedListState> _listKey = GlobalKey<AnimatedListState>();
-  final List<_TradeEntry> _trades = [];
+  final List<WhaleTrade> _trades = [];
   Timer? _timer;
   Timer? _priceUpdateTimer;
+  Timer? _fallbackTimer;
+  StreamSubscription<WhaleTrade>? _socketSub;
   final Random _rnd = Random();
-  static const int _maxTrades = 20;
+  static const int _maxTrades = 7;
   late List<double> _livePrices;
 
   bool get _isWeekend {
@@ -1172,12 +1172,32 @@ class _WhaleColumnState extends State<_WhaleColumn> {
   void initState() {
     super.initState();
     _livePrices = List<double>.from(widget.basePrices);
-    // seed 12 initial trades instantly
-    for (int i = 0; i < 12; i++) {
+    // seed 8 initial trades instantly
+    for (int i = 0; i < 8; i++) {
       _trades.insert(0, _newTrade());
     }
-    // start live feed
-    _timer = Timer.periodic(widget.interval, (_) => _addTrade());
+
+    final labelLower = widget.label.toLowerCase();
+    if (labelLower == 'crypto') {
+      _fallbackTimer = Timer(const Duration(seconds: 4), () {
+        if (!mounted) return;
+        _timer = Timer.periodic(widget.interval, (_) => _addTrade());
+      });
+      _socketSub = WhalePriceService.getCryptoWhaleTradesStream(widget.symbols)
+          .listen((trade) {
+        if (!mounted) return;
+        _fallbackTimer?.cancel();
+        setState(() {
+          _trades.insert(0, trade);
+          if (_trades.length > _maxTrades) {
+            _trades.removeLast();
+          }
+        });
+      });
+    } else {
+      // start live feed
+      _timer = Timer.periodic(widget.interval, (_) => _addTrade());
+    }
 
     // Fetch real-time prices initially (force to load closing prices on weekend) and setup periodic updates
     _fetchRealPrices(force: true);
@@ -1217,9 +1237,9 @@ class _WhaleColumnState extends State<_WhaleColumn> {
     } catch (_) {}
   }
 
-  _TradeEntry _newTrade() {
+  WhaleTrade _newTrade() {
     if (widget.symbols.isEmpty) {
-      return _TradeEntry(
+      return WhaleTrade(
         symbol: '',
         price: '0.0',
         size: '0.0',
@@ -1233,7 +1253,7 @@ class _WhaleColumnState extends State<_WhaleColumn> {
     final price = (base + priceDelta);
     final sizeVal = _rnd.nextDouble() * 900 + 10;
     final now = DateTime.now();
-    return _TradeEntry(
+    return WhaleTrade(
       symbol: widget.symbols[idx],
       price: price >= 1000
           ? price.toStringAsFixed(1)
@@ -1255,107 +1275,103 @@ class _WhaleColumnState extends State<_WhaleColumn> {
     if ((labelLower == 'forex' || labelLower == 'metals') && _isWeekend) {
       return;
     }
-    final entry = _newTrade();
-    _trades.insert(0, entry);
-    _listKey.currentState
-        ?.insertItem(0, duration: const Duration(milliseconds: 300));
-    if (_trades.length > _maxTrades) {
-      final removed = _trades.removeAt(_trades.length - 1);
-      _listKey.currentState?.removeItem(
-        _trades.length,
-        (context, animation) => _buildRow(removed, animation),
-        duration: const Duration(milliseconds: 150),
-      );
-    }
+    setState(() {
+      _trades.insert(0, _newTrade());
+      if (_trades.length > _maxTrades) {
+        _trades.removeLast();
+      }
+    });
   }
 
   @override
   void dispose() {
     _timer?.cancel();
     _priceUpdateTimer?.cancel();
+    _fallbackTimer?.cancel();
+    _socketSub?.cancel();
     super.dispose();
   }
 
-  Widget _buildRow(_TradeEntry t, Animation<double> animation) {
+
+  Widget _buildRow(WhaleTrade t, {bool isFirst = false}) {
     final buyColor = const Color(0xFF00E676);
     final sellColor = const Color(0xFFFF1744);
     final sideColor = t.isBuy ? buyColor : sellColor;
 
-    return SizeTransition(
-      sizeFactor: animation,
-      axisAlignment: -1,
-      child: FadeTransition(
-        opacity: animation,
-        child: Container(
-          margin: EdgeInsets.only(bottom: 1.h),
-          padding: EdgeInsets.symmetric(horizontal: 6.w, vertical: 4.h),
-          decoration: BoxDecoration(
-            color: sideColor.withValues(alpha: 0.07),
-            border: Border(
-              left: BorderSide(color: sideColor, width: 2.5),
-            ),
-          ),
-          child: Row(
-            children: [
-              // Side indicator dot
-              Container(
-                width: 5.r,
-                height: 5.r,
-                decoration: BoxDecoration(
-                  color: sideColor,
-                  shape: BoxShape.circle,
-                ),
-              ),
-              SizedBox(width: 4.w),
-              // Symbol
-              Expanded(
-                flex: 3,
-                child: Text(
-                  t.symbol,
-                  style: TextStyle(
-                    color: AppColors.textPrimary,
-                    fontSize: 8.5.sp,
-                    fontWeight: FontWeight.w800,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-              // Price
-              Expanded(
-                flex: 4,
-                child: Text(
-                  t.price,
-                  style: TextStyle(
-                    color: sideColor,
-                    fontSize: 8.sp,
-                    fontWeight: FontWeight.w700,
-                    fontFeatures: const [FontFeature.tabularFigures()],
-                  ),
-                  textAlign: TextAlign.center,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-              // Size
-              Expanded(
-                flex: 3,
-                child: Text(
-                  t.size,
-                  style: TextStyle(
-                    color: AppColors.textSecondary,
-                    fontSize: 7.5.sp,
-                    fontWeight: FontWeight.w600,
-                  ),
-                  textAlign: TextAlign.end,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            ],
-          ),
+    final row = Container(
+      margin: EdgeInsets.only(bottom: 1.h),
+      padding: EdgeInsets.symmetric(horizontal: 6.w, vertical: 4.h),
+      decoration: BoxDecoration(
+        color: sideColor.withValues(alpha: 0.07),
+        border: Border(
+          left: BorderSide(color: sideColor, width: 2.5),
         ),
       ),
+      child: Row(
+        children: [
+          // Side indicator dot
+          Container(
+            width: 5.r,
+            height: 5.r,
+            decoration: BoxDecoration(
+              color: sideColor,
+              shape: BoxShape.circle,
+            ),
+          ),
+          SizedBox(width: 4.w),
+          // Symbol
+          Expanded(
+            flex: 3,
+            child: Text(
+              t.symbol,
+              style: TextStyle(
+                color: AppColors.textPrimary,
+                fontSize: 8.5.sp,
+                fontWeight: FontWeight.w800,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          // Price
+          Expanded(
+            flex: 4,
+            child: Text(
+              t.price,
+              style: TextStyle(
+                color: sideColor,
+                fontSize: 8.sp,
+                fontWeight: FontWeight.w700,
+              ),
+              textAlign: TextAlign.center,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          // Size
+          Expanded(
+            flex: 3,
+            child: Text(
+              t.size,
+              style: TextStyle(
+                color: AppColors.textSecondary,
+                fontSize: 7.5.sp,
+                fontWeight: FontWeight.w600,
+              ),
+              textAlign: TextAlign.end,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (!isFirst) return row;
+    return AnimatedOpacity(
+      opacity: 1.0,
+      duration: const Duration(milliseconds: 300),
+      child: row,
     );
   }
 
@@ -1438,16 +1454,12 @@ class _WhaleColumnState extends State<_WhaleColumn> {
           ),
           // ── Live feed ──
           SizedBox(
-            height: 350.h,
-            child: AnimatedList(
-              key: _listKey,
-              shrinkWrap: false,
+            height: 150.h,
+            child: ListView.builder(
               physics: const NeverScrollableScrollPhysics(),
-              initialItemCount: _trades.length,
-              itemBuilder: (context, index, animation) {
-                if (index >= _trades.length) return const SizedBox.shrink();
-                return _buildRow(_trades[index], animation);
-              },
+              itemCount: _trades.length,
+              itemBuilder: (context, index) =>
+                  _buildRow(_trades[index], isFirst: index == 0),
             ),
           ),
         ],
@@ -1606,7 +1618,7 @@ class _NewsMarqueeWidgetState extends State<NewsMarqueeWidget> {
 
     if (_news.isEmpty) return const SizedBox.shrink();
 
-    return Container(
+    return SizedBox(
       width: double.infinity,
       child: ShaderMask(
         shaderCallback: (Rect bounds) {
@@ -2004,6 +2016,1062 @@ class _PlatformStatsBoxState extends State<PlatformStatsBox> {
           _buildRow('Cold Wallet', '$_coldWallet m',
               _getColor(_coldWallet, _prevColdWallet)),
         ],
+      ),
+    );
+  }
+}
+
+// ─── Admin Counter Widget ──────────────────────────────
+class _AdminCounterWidget extends StatefulWidget {
+  final String email;
+  const _AdminCounterWidget({required this.email});
+
+  @override
+  State<_AdminCounterWidget> createState() => _AdminCounterWidgetState();
+}
+
+class _AdminCounterWidgetState extends State<_AdminCounterWidget> {
+  bool _isAdmin = false;
+  int? _userCount;
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkAdminAndFetchCount();
+  }
+
+  Future<void> _checkAdminAndFetchCount() async {
+    if (widget.email.isEmpty) {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+      return;
+    }
+    try {
+      final supabase = Supabase.instance.client;
+      // 1. Check if email is in admins table
+      final adminCheck = await supabase
+          .from('admins')
+          .select('email')
+          .eq('email', widget.email)
+          .maybeSingle();
+
+      if (adminCheck != null) {
+        if (!mounted) return;
+        setState(() {
+          _isAdmin = true;
+        });
+
+        // 2. Fetch user count
+        final count = await supabase.from('users').count(CountOption.exact);
+
+        if (!mounted) return;
+        setState(() {
+          _userCount = count;
+          _isLoading = false;
+        });
+      } else {
+        if (!mounted) return;
+        setState(() {
+          _isAdmin = false;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error fetching admin counter: $e');
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_isLoading || !_isAdmin || _userCount == null) {
+      return const SizedBox.shrink();
+    }
+
+    return Container(
+      margin: EdgeInsets.only(bottom: 4.h, left: 8.w),
+      padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 3.h),
+      decoration: BoxDecoration(
+        color: AppColors.primary.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(8.r),
+        border: Border.all(
+          color: AppColors.primary.withValues(alpha: 0.3),
+          width: 0.8,
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            Icons.people_alt_rounded,
+            color: AppColors.primary,
+            size: 11.r,
+          ),
+          SizedBox(width: 4.w),
+          Text(
+            '$_userCount',
+            style: TextStyle(
+              color: AppColors.primary,
+              fontSize: 10.5.sp,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── Signals Feed Widget (3 rows + Admin CRUD) ─────────────
+
+const _kCategories = [
+  (
+    label: 'Forex',
+    cat: 'forex',
+    icon: Icons.show_chart_rounded,
+    color: Color(0xFF2196F3)
+  ),
+  (
+    label: 'Crypto',
+    cat: 'crypto',
+    icon: Icons.currency_bitcoin_rounded,
+    color: Colors.orange
+  ),
+  (
+    label: 'Metals',
+    cat: 'metals',
+    icon: Icons.diamond_rounded,
+    color: Color(0xFFD4AF37)
+  ),
+];
+
+class _SignalsFeed extends StatefulWidget {
+  final String adminEmail;
+  const _SignalsFeed({required this.adminEmail});
+
+  @override
+  State<_SignalsFeed> createState() => _SignalsFeedState();
+}
+
+class _SignalsFeedState extends State<_SignalsFeed> {
+  bool _isAdmin = false;
+  List<SupabaseSignal> _signals = [];
+  StreamSubscription<List<SupabaseSignal>>? _sub;
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkAdmin();
+    _sub = WhalePriceService.getSignalsStream().listen((signals) {
+      if (!mounted) return;
+      setState(() {
+        _signals = signals;
+        _isLoading = false;
+      });
+    }, onError: (_) {
+      if (mounted) setState(() => _isLoading = false);
+    });
+  }
+
+  Future<void> _checkAdmin() async {
+    if (widget.adminEmail.isEmpty) return;
+    try {
+      final res = await Supabase.instance.client
+          .from('admins')
+          .select('email')
+          .eq('email', widget.adminEmail)
+          .maybeSingle();
+      if (mounted && res != null) setState(() => _isAdmin = true);
+    } catch (_) {}
+  }
+
+  @override
+  void dispose() {
+    _sub?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _deleteSignal(int id) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.bgCard,
+        title: Text('Delete Signal',
+            style: TextStyle(color: AppColors.textPrimary, fontSize: 14.sp)),
+        content: Text('Are you sure?',
+            style: TextStyle(color: AppColors.textSecondary, fontSize: 12.sp)),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text('Delete', style: TextStyle(color: AppColors.error)),
+          ),
+        ],
+      ),
+    );
+    if (ok == true) {
+      await Supabase.instance.client.from('signals').delete().eq('id', id);
+    }
+  }
+
+  void _openForm({SupabaseSignal? signal, String? presetCategory}) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _SignalFormSheet(
+        existing: signal,
+        presetCategory: presetCategory,
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // ── Section header ──
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const SectionHeader(title: '📡 Live Signals'),
+            GestureDetector(
+              onTap: () => context.push('/signals'),
+              child: Container(
+                padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 4.h),
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(8.r),
+                  border: Border.all(
+                      color: AppColors.primary.withValues(alpha: 0.3),
+                      width: 1),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      'See All',
+                      style: TextStyle(
+                        color: AppColors.primary,
+                        fontSize: 10.sp,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    SizedBox(width: 3.w),
+                    Icon(Icons.arrow_forward_ios_rounded,
+                        color: AppColors.primary, size: 9.r),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+        SizedBox(height: 8.h),
+
+        if (_isLoading)
+          const Center(
+              child: Padding(
+            padding: EdgeInsets.all(24),
+            child: CircularProgressIndicator(strokeWidth: 1.5),
+          ))
+        else
+          // ── 3 category rows ──
+          Column(
+            children: _kCategories.asMap().entries.map((entry) {
+              final tabIndex = entry.key;
+              final c = entry.value;
+              final catSignals = _signals
+                  .where((s) => s.category.toLowerCase() == c.cat)
+                  .toList();
+              return GestureDetector(
+                onTap: () => context.push('/signals?tab=$tabIndex'),
+                child: _buildCategoryRow(
+                  label: c.label,
+                  cat: c.cat,
+                  icon: c.icon,
+                  color: c.color,
+                  signals: catSignals,
+                  tabIndex: tabIndex,
+                ),
+              );
+            }).toList(),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildCategoryRow({
+    required String label,
+    required String cat,
+    required IconData icon,
+    required Color color,
+    required List<SupabaseSignal> signals,
+    int tabIndex = 0,
+  }) {
+    // Formal muted color derived from category
+    final formalBorder = const Color(0xFF334155); // slate-700
+    final formalBg = const Color(0xFF0F172A); // slate-900
+    final formalLabel = const Color(0xFF94A3B8); // slate-400
+
+    return Container(
+      margin: EdgeInsets.only(bottom: 8.h),
+      decoration: BoxDecoration(
+        color: formalBg,
+        borderRadius: BorderRadius.circular(10.r),
+        border: Border.all(color: formalBorder, width: 0.8),
+      ),
+      child: Column(
+        children: [
+          // ── Centered category label inside border ──
+          Padding(
+            padding: EdgeInsets.symmetric(vertical: 5.h, horizontal: 12.w),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(icon, color: formalLabel, size: 10.r),
+                SizedBox(width: 5.w),
+                Text(
+                  label.toUpperCase(),
+                  style: TextStyle(
+                    color: formalLabel,
+                    fontSize: 9.sp,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 1.2,
+                  ),
+                ),
+                if (_isAdmin) ...[
+                  const Spacer(),
+                  GestureDetector(
+                    onTap: () => _openForm(presetCategory: cat),
+                    child: Container(
+                      padding:
+                          EdgeInsets.symmetric(horizontal: 6.w, vertical: 2.h),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF1E293B),
+                        borderRadius: BorderRadius.circular(5.r),
+                        border: Border.all(color: formalBorder),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.add_rounded,
+                              color: formalLabel, size: 9.r),
+                          SizedBox(width: 2.w),
+                          Text('Add',
+                              style: TextStyle(
+                                  color: formalLabel,
+                                  fontSize: 7.sp,
+                                  fontWeight: FontWeight.w700)),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          Divider(color: formalBorder, height: 1, thickness: 0.5),
+
+          // Column labels
+          Padding(
+            padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 3.h),
+            child: Row(
+              children: [
+                Expanded(
+                    flex: 3,
+                    child: Text('Pair',
+                        style: TextStyle(
+                            color: const Color(0xFF475569),
+                            fontSize: 6.5.sp,
+                            fontWeight: FontWeight.w600,
+                            letterSpacing: 0.4))),
+                Expanded(
+                    flex: 4,
+                    child: Text('Type / Strategy',
+                        textAlign: TextAlign.left,
+                        style: TextStyle(
+                            color: const Color(0xFF475569),
+                            fontSize: 6.5.sp,
+                            fontWeight: FontWeight.w600,
+                            letterSpacing: 0.4))),
+                Expanded(
+                    flex: 2,
+                    child: Text('Entry',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                            color: const Color(0xFF475569),
+                            fontSize: 6.5.sp,
+                            fontWeight: FontWeight.w600,
+                            letterSpacing: 0.4))),
+                Expanded(
+                    flex: 2,
+                    child: Text('TP / SL',
+                        textAlign: TextAlign.end,
+                        style: TextStyle(
+                            color: const Color(0xFF475569),
+                            fontSize: 6.5.sp,
+                            fontWeight: FontWeight.w600,
+                            letterSpacing: 0.4))),
+                if (_isAdmin) SizedBox(width: 36.w),
+              ],
+            ),
+          ),
+          Divider(
+              color: formalBorder.withValues(alpha: 0.5),
+              height: 1,
+              thickness: 0.4),
+
+          // Signal rows or empty state
+          signals.isEmpty
+              ? Padding(
+                  padding: EdgeInsets.symmetric(vertical: 10.h),
+                  child: Center(
+                    child: Text(
+                      'No active ${label.toLowerCase()} signals',
+                      style: TextStyle(
+                          color: const Color(0xFF475569),
+                          fontSize: 8.5.sp,
+                          fontStyle: FontStyle.italic),
+                    ),
+                  ),
+                )
+              : Column(
+                  children:
+                      signals.map((s) => _buildSignalRow(s, color)).toList(),
+                ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSignalRow(SupabaseSignal s, Color catColor) {
+    final isBuy = s.type.toUpperCase() == 'BUY';
+    final buyColor = const Color(0xFF34D399);
+    final sellColor = const Color(0xFFF87171);
+    final actionColor = isBuy ? buyColor : sellColor;
+    final rowBg = Colors.transparent;
+
+    // Status badge
+    final statusStyle = _statusStyle(s.status);
+    final stratInfo = getStrategyInfo(s.strategy);
+
+    return Container(
+      decoration: BoxDecoration(
+        color: rowBg,
+        border: Border(
+          left: BorderSide(color: actionColor.withValues(alpha: 0.7), width: 2),
+        ),
+      ),
+      padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 4.h),
+      child: Row(
+        children: [
+          // Symbol
+          Expanded(
+            flex: 3,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  _formatDate(s.signalTime),
+                  style: TextStyle(color: AppColors.textHint, fontSize: 6.5.sp),
+                ),
+                Text(
+                  s.symbol.toUpperCase(),
+                  style: TextStyle(
+                    color: const Color(0xFFCBD5E1),
+                    fontSize: 8.5.sp,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.3,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          // BUY / SELL / Strategy badges
+          Expanded(
+            flex: 4,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  alignment: Alignment.center,
+                  padding: EdgeInsets.symmetric(horizontal: 4.w, vertical: 2.h),
+                  decoration: BoxDecoration(
+                    color: actionColor.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(4.r),
+                    border: Border.all(
+                        color: actionColor.withValues(alpha: 0.3), width: 0.7),
+                  ),
+                  child: Text(
+                    s.type.toUpperCase(),
+                    style: TextStyle(
+                      color: actionColor,
+                      fontSize: 8.sp,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                ),
+                if (stratInfo != null) ...[
+                  SizedBox(width: 16.w),
+                  Flexible(
+                    child: StrategyBadge(info: stratInfo),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          // Entry
+          Expanded(
+            flex: 2,
+            child: Text(
+              s.entryPrice,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: const Color(0xFFCBD5E1),
+                fontSize: 8.sp,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          // TP / SL
+          Expanded(
+            flex: 2,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                if (s.targetPrice != null)
+                  Text('TP: ${s.targetPrice}',
+                      style: TextStyle(
+                        color: buyColor.withValues(alpha: 0.8),
+                        fontSize: 7.sp,
+                        fontWeight: FontWeight.w600,
+                      )),
+                if (s.stopLoss != null)
+                  Text('SL: ${s.stopLoss}',
+                      style: TextStyle(
+                        color: sellColor.withValues(alpha: 0.8),
+                        fontSize: 7.sp,
+                        fontWeight: FontWeight.w600,
+                      )),
+              ],
+            ),
+          ),
+          // Status badge
+          SizedBox(width: 4.w),
+          Container(
+            padding: EdgeInsets.symmetric(horizontal: 4.w, vertical: 1.5.h),
+            decoration: BoxDecoration(
+              color: statusStyle.bg,
+              borderRadius: BorderRadius.circular(4.r),
+              border: Border.all(color: statusStyle.border, width: 0.6),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(statusStyle.icon, color: statusStyle.fg, size: 7.r),
+                SizedBox(width: 2.w),
+                Text(
+                  statusStyle.label,
+                  style: TextStyle(
+                    color: statusStyle.fg,
+                    fontSize: 6.5.sp,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0.3,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          // Admin edit / delete
+          if (_isAdmin) ...[
+            SizedBox(width: 2.w),
+            GestureDetector(
+              onTap: () => _openForm(signal: s),
+              child: Padding(
+                padding: EdgeInsets.all(3.r),
+                child: Icon(Icons.edit_rounded,
+                    color: const Color(0xFF64748B), size: 11.r),
+              ),
+            ),
+            SizedBox(width: 8.w),
+            GestureDetector(
+              onTap: () => _deleteSignal(s.id),
+              child: Padding(
+                padding: EdgeInsets.all(3.r),
+                child: Icon(Icons.delete_outline_rounded,
+                    color: const Color(0xFFF87171).withValues(alpha: 0.6),
+                    size: 11.r),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  String _formatDate(DateTime dt) {
+    return '${dt.day.toString().padLeft(2, '0')}/${dt.month.toString().padLeft(2, '0')} '
+        '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
+  }
+
+  // ── Status badge styling helper ──
+  ({Color fg, Color bg, Color border, IconData icon, String label})
+      _statusStyle(String status) {
+    switch (status.toLowerCase()) {
+      case 'win':
+        return (
+          fg: const Color(0xFF34D399),
+          bg: const Color(0xFF022C22),
+          border: const Color(0xFF34D399),
+          icon: Icons.check_circle_rounded,
+          label: 'WIN',
+        );
+      case 'loss':
+        return (
+          fg: const Color(0xFFF87171),
+          bg: const Color(0xFF2D0A0A),
+          border: const Color(0xFFF87171),
+          icon: Icons.cancel_rounded,
+          label: 'LOSS',
+        );
+      default:
+        return (
+          fg: const Color(0xFF94A3B8),
+          bg: const Color(0xFF1E293B),
+          border: const Color(0xFF334155),
+          icon: Icons.schedule_rounded,
+          label: 'WAIT',
+        );
+    }
+  }
+}
+
+// ─── Signal Add / Edit Bottom Sheet Form ──────────────
+class _SignalFormSheet extends StatefulWidget {
+  final SupabaseSignal? existing;
+  final String? presetCategory;
+  const _SignalFormSheet({this.existing, this.presetCategory});
+
+  @override
+  State<_SignalFormSheet> createState() => _SignalFormSheetState();
+}
+
+class _SignalFormSheetState extends State<_SignalFormSheet> {
+  late TextEditingController _symbolCtrl;
+  late TextEditingController _entryCtrl;
+  late TextEditingController _tpCtrl;
+  late TextEditingController _slCtrl;
+  late String _category;
+  late String _type;
+  late String _status;
+  String? _strategy;
+  late DateTime _signalTime;
+  bool _saving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    final s = widget.existing;
+    _category = s?.category ?? widget.presetCategory ?? 'crypto';
+    _type = s?.type.toUpperCase() ?? 'BUY';
+    _status = s?.status ?? 'pending';
+    _symbolCtrl = TextEditingController(text: s?.symbol ?? '');
+    _entryCtrl = TextEditingController(text: s?.entryPrice ?? '');
+    _tpCtrl = TextEditingController(text: s?.targetPrice ?? '');
+    _slCtrl = TextEditingController(text: s?.stopLoss ?? '');
+    _strategy = s?.strategy;
+    _signalTime = s?.signalTime ?? DateTime.now();
+  }
+
+  @override
+  void dispose() {
+    _symbolCtrl.dispose();
+    _entryCtrl.dispose();
+    _tpCtrl.dispose();
+    _slCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _selectDateTime() async {
+    final pickedDate = await showDatePicker(
+      context: context,
+      initialDate: _signalTime,
+      firstDate: DateTime(2020),
+      lastDate: DateTime(2101),
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: const ColorScheme.dark(
+              primary: AppColors.primary,
+              onPrimary: Colors.white,
+              surface: AppColors.bgCard,
+              onSurface: AppColors.textPrimary,
+            ),
+            dialogBackgroundColor: AppColors.bgDark,
+          ),
+          child: child!,
+        );
+      },
+    );
+    if (pickedDate == null) return;
+
+    if (!mounted) return;
+    final pickedTime = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay.fromDateTime(_signalTime),
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: const ColorScheme.dark(
+              primary: AppColors.primary,
+              onPrimary: Colors.white,
+              surface: AppColors.bgCard,
+              onSurface: AppColors.textPrimary,
+            ),
+            dialogBackgroundColor: AppColors.bgDark,
+          ),
+          child: child!,
+        );
+      },
+    );
+    if (pickedTime == null) return;
+
+    setState(() {
+      _signalTime = DateTime(
+        pickedDate.year,
+        pickedDate.month,
+        pickedDate.day,
+        pickedTime.hour,
+        pickedTime.minute,
+      );
+    });
+  }
+
+  Future<void> _save() async {
+    if (_symbolCtrl.text.isEmpty || _entryCtrl.text.isEmpty) return;
+    setState(() => _saving = true);
+    try {
+      final data = {
+        'category': _category,
+        'symbol': _symbolCtrl.text.trim().toUpperCase(),
+        'type': _type,
+        'entry_price': _entryCtrl.text.trim(),
+        'target_price':
+            _tpCtrl.text.trim().isEmpty ? null : _tpCtrl.text.trim(),
+        'stop_loss': _slCtrl.text.trim().isEmpty ? null : _slCtrl.text.trim(),
+        'status': _status,
+        'signal_time': _signalTime.toUtc().toIso8601String(),
+        'strategy': _strategy,
+      };
+      final supabase = Supabase.instance.client;
+      if (widget.existing != null) {
+        await supabase
+            .from('signals')
+            .update(data)
+            .eq('id', widget.existing!.id);
+      } else {
+        await supabase.from('signals').insert(data);
+      }
+      if (mounted) Navigator.pop(context);
+    } catch (e) {
+      debugPrint('Error saving signal: $e');
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  InputDecoration _inputDeco(String label) => InputDecoration(
+        labelText: label,
+        labelStyle: TextStyle(color: AppColors.textHint, fontSize: 11.sp),
+        filled: true,
+        fillColor: AppColors.bgDark,
+        border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(10.r),
+            borderSide: BorderSide(color: AppColors.borderSubtle)),
+        enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(10.r),
+            borderSide: BorderSide(color: AppColors.borderSubtle)),
+        focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(10.r),
+            borderSide: BorderSide(color: AppColors.primary, width: 1.5)),
+        contentPadding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 10.h),
+      );
+
+  @override
+  Widget build(BuildContext context) {
+    final isEdit = widget.existing != null;
+    return Padding(
+      padding:
+          EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+      child: Container(
+        decoration: BoxDecoration(
+          color: AppColors.bgCard,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20.r)),
+        ),
+        padding: EdgeInsets.fromLTRB(20.w, 16.h, 20.w, 24.h),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Handle bar
+            Center(
+              child: Container(
+                width: 40.w,
+                height: 4.h,
+                decoration: BoxDecoration(
+                  color: AppColors.borderSubtle,
+                  borderRadius: BorderRadius.circular(2.r),
+                ),
+              ),
+            ),
+            SizedBox(height: 14.h),
+            Text(
+              isEdit ? 'Edit Signal' : 'Add Signal',
+              style: TextStyle(
+                  color: AppColors.textPrimary,
+                  fontSize: 15.sp,
+                  fontWeight: FontWeight.w800),
+            ),
+            SizedBox(height: 14.h),
+
+            // Category & Type row
+            Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Category',
+                          style: TextStyle(
+                              color: AppColors.textHint, fontSize: 10.sp)),
+                      SizedBox(height: 4.h),
+                      DropdownButtonFormField<String>(
+                        value: _category,
+                        decoration: _inputDeco(''),
+                        dropdownColor: AppColors.bgCard,
+                        style: TextStyle(
+                            color: AppColors.textPrimary, fontSize: 11.sp),
+                        items: const [
+                          DropdownMenuItem(
+                              value: 'crypto', child: Text('Crypto')),
+                          DropdownMenuItem(
+                              value: 'forex', child: Text('Forex')),
+                          DropdownMenuItem(
+                              value: 'metals', child: Text('Metals')),
+                        ],
+                        onChanged: (v) => setState(() => _category = v!),
+                      ),
+                    ],
+                  ),
+                ),
+                SizedBox(width: 10.w),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Type',
+                          style: TextStyle(
+                              color: AppColors.textHint, fontSize: 10.sp)),
+                      SizedBox(height: 4.h),
+                      DropdownButtonFormField<String>(
+                        value: _type,
+                        decoration: _inputDeco(''),
+                        dropdownColor: AppColors.bgCard,
+                        style: TextStyle(
+                            color: AppColors.textPrimary, fontSize: 11.sp),
+                        items: const [
+                          DropdownMenuItem(value: 'BUY', child: Text('BUY')),
+                          DropdownMenuItem(value: 'SELL', child: Text('SELL')),
+                        ],
+                        onChanged: (v) => setState(() => _type = v!),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            SizedBox(height: 10.h),
+
+            // Status
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Status',
+                    style:
+                        TextStyle(color: AppColors.textHint, fontSize: 10.sp)),
+                SizedBox(height: 4.h),
+                DropdownButtonFormField<String>(
+                  value: _status,
+                  decoration: _inputDeco(''),
+                  dropdownColor: AppColors.bgCard,
+                  style:
+                      TextStyle(color: AppColors.textPrimary, fontSize: 11.sp),
+                  items: const [
+                    DropdownMenuItem(
+                        value: 'pending', child: Text('⏳ Pending')),
+                    DropdownMenuItem(value: 'win', child: Text('✅ Win')),
+                    DropdownMenuItem(value: 'loss', child: Text('❌ Loss')),
+                  ],
+                  onChanged: (v) => setState(() => _status = v!),
+                ),
+              ],
+            ),
+            SizedBox(height: 10.h),
+
+            // Strategy / Tag
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Strategy / Tag (Optional)',
+                    style:
+                        TextStyle(color: AppColors.textHint, fontSize: 10.sp)),
+                SizedBox(height: 4.h),
+                DropdownButtonFormField<String?>(
+                  value: _strategy,
+                  decoration: _inputDeco(''),
+                  dropdownColor: AppColors.bgCard,
+                  style:
+                      TextStyle(color: AppColors.textPrimary, fontSize: 11.sp),
+                  items: const [
+                    DropdownMenuItem(value: null, child: Text('None')),
+                    DropdownMenuItem(
+                        value: 'pump_coming', child: Text('🔥 Pump Coming')),
+                    DropdownMenuItem(value: 'news', child: Text('📰 News')),
+                    DropdownMenuItem(
+                        value: 'gann_pattern', child: Text('📐 Gann Pattern')),
+                    DropdownMenuItem(
+                        value: 'price_action', child: Text('📊 Price Action')),
+                  ],
+                  onChanged: (v) => setState(() => _strategy = v),
+                ),
+              ],
+            ),
+            SizedBox(height: 10.h),
+
+            // Symbol
+            TextField(
+              controller: _symbolCtrl,
+              style: TextStyle(color: AppColors.textPrimary, fontSize: 12.sp),
+              decoration: _inputDeco('Symbol (e.g. BTC/USDT)'),
+              textCapitalization: TextCapitalization.characters,
+            ),
+            SizedBox(height: 10.h),
+
+            // Entry price
+            TextField(
+              controller: _entryCtrl,
+              style: TextStyle(color: AppColors.textPrimary, fontSize: 12.sp),
+              decoration: _inputDeco('Entry Price'),
+              keyboardType:
+                  const TextInputType.numberWithOptions(decimal: true),
+            ),
+            SizedBox(height: 10.h),
+
+            // TP & SL row
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _tpCtrl,
+                    style: TextStyle(
+                        color: AppColors.textPrimary, fontSize: 12.sp),
+                    decoration: _inputDeco('Take Profit (opt.)'),
+                    keyboardType:
+                        const TextInputType.numberWithOptions(decimal: true),
+                  ),
+                ),
+                SizedBox(width: 10.w),
+                Expanded(
+                  child: TextField(
+                    controller: _slCtrl,
+                    style: TextStyle(
+                        color: AppColors.textPrimary, fontSize: 12.sp),
+                    decoration: _inputDeco('Stop Loss (opt.)'),
+                    keyboardType:
+                        const TextInputType.numberWithOptions(decimal: true),
+                  ),
+                ),
+              ],
+            ),
+            SizedBox(height: 10.h),
+
+            // Signal Time
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Signal Date & Time',
+                    style:
+                        TextStyle(color: AppColors.textHint, fontSize: 10.sp)),
+                SizedBox(height: 4.h),
+                InkWell(
+                  onTap: _selectDateTime,
+                  borderRadius: BorderRadius.circular(10.r),
+                  child: Container(
+                    padding:
+                        EdgeInsets.symmetric(horizontal: 12.w, vertical: 10.h),
+                    decoration: BoxDecoration(
+                      color: AppColors.bgDark,
+                      borderRadius: BorderRadius.circular(10.r),
+                      border: Border.all(color: AppColors.borderSubtle),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          '${_signalTime.day.toString().padLeft(2, '0')}/${_signalTime.month.toString().padLeft(2, '0')}/${_signalTime.year} '
+                          '${_signalTime.hour.toString().padLeft(2, '0')}:${_signalTime.minute.toString().padLeft(2, '0')}',
+                          style: TextStyle(
+                              color: AppColors.textPrimary, fontSize: 11.sp),
+                        ),
+                        Icon(Icons.calendar_today_rounded,
+                            color: AppColors.primary, size: 14.r),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            SizedBox(height: 18.h),
+
+            // Save button
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: _saving ? null : _save,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: Colors.white,
+                  padding: EdgeInsets.symmetric(vertical: 12.h),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12.r)),
+                ),
+                child: _saving
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(
+                            strokeWidth: 2, color: Colors.white))
+                    : Text(isEdit ? 'Save Changes' : 'Add Signal',
+                        style: TextStyle(
+                            fontSize: 12.sp, fontWeight: FontWeight.w800)),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

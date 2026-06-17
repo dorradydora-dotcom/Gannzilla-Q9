@@ -6,22 +6,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/services/market_data_service.dart';
 
-// ─── Entry model ───────────────────────────────────────────
-class WhaleTrade {
-  final String symbol;
-  final String price;
-  final String size;
-  final bool isBuy;
-  final String time;
 
-  WhaleTrade({
-    required this.symbol,
-    required this.price,
-    required this.size,
-    required this.isBuy,
-    required this.time,
-  });
-}
 
 // ─── Feed config for each tab ──────────────────────────────
 class _FeedConfig {
@@ -340,13 +325,14 @@ class _FullFeedView extends StatefulWidget {
 
 class _FullFeedViewState extends State<_FullFeedView>
     with AutomaticKeepAliveClientMixin {
-  final GlobalKey<AnimatedListState> _listKey = GlobalKey<AnimatedListState>();
   final List<WhaleTrade> _trades = [];
   Timer? _timer;
   Timer? _priceUpdateTimer;
+  Timer? _fallbackTimer;
   final Random _rnd = Random();
   static const int _maxTrades = 120;
   late List<double> _livePrices;
+  StreamSubscription<WhaleTrade>? _socketSub;
 
   bool get _isWeekend {
     final day = DateTime.now().weekday;
@@ -363,7 +349,26 @@ class _FullFeedViewState extends State<_FullFeedView>
     for (int i = 0; i < 30; i++) {
       _trades.add(_newTrade());
     }
-    _timer = Timer.periodic(widget.config.interval, (_) => _addTrade());
+
+    final labelLower = widget.config.label.toLowerCase();
+    if (labelLower == 'crypto') {
+      _fallbackTimer = Timer(const Duration(seconds: 4), () {
+        if (!mounted) return;
+        _timer = Timer.periodic(widget.config.interval, (_) => _addTrade());
+      });
+      _socketSub = WhalePriceService.getCryptoWhaleTradesStream(widget.config.symbols).listen((trade) {
+        if (!mounted) return;
+        _fallbackTimer?.cancel();
+        setState(() {
+          _trades.insert(0, trade);
+          if (_trades.length > _maxTrades) {
+            _trades.removeLast();
+          }
+        });
+      });
+    } else {
+      _timer = Timer.periodic(widget.config.interval, (_) => _addTrade());
+    }
 
     // Fetch real-time prices initially (force to load closing prices on weekend) and setup periodic updates
     _fetchRealPrices(force: true);
@@ -441,155 +446,147 @@ class _FullFeedViewState extends State<_FullFeedView>
     if ((labelLower == 'forex' || labelLower == 'metals') && _isWeekend) {
       return;
     }
-    final entry = _newTrade();
-    _trades.insert(0, entry);
-    _listKey.currentState
-        ?.insertItem(0, duration: const Duration(milliseconds: 250));
-    if (_trades.length > _maxTrades) {
-      final removed = _trades.removeAt(_trades.length - 1);
-      _listKey.currentState?.removeItem(
-        _trades.length,
-        (ctx, anim) => _buildRow(removed, anim),
-        duration: const Duration(milliseconds: 120),
-      );
-    }
+    setState(() {
+      _trades.insert(0, _newTrade());
+      if (_trades.length > _maxTrades) {
+        _trades.removeLast();
+      }
+    });
   }
 
   @override
   void dispose() {
     _timer?.cancel();
     _priceUpdateTimer?.cancel();
+    _fallbackTimer?.cancel();
+    _socketSub?.cancel();
     super.dispose();
   }
 
-  Widget _buildRow(WhaleTrade t, Animation<double> animation) {
+  Widget _buildRow(WhaleTrade t, {bool isFirst = false}) {
     const buyColor = Color(0xFF00E676);
     const sellColor = Color(0xFFFF1744);
     final sideColor = t.isBuy ? buyColor : sellColor;
     final sideLabel = t.isBuy ? 'BUY' : 'SELL';
 
-    return SizeTransition(
-      sizeFactor: animation,
-      axisAlignment: -1,
-      child: FadeTransition(
-        opacity: animation,
-        child: Container(
-          margin: EdgeInsets.only(bottom: 1.5.h),
-          padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 9.h),
-          decoration: BoxDecoration(
-            color: sideColor.withValues(alpha: 0.06),
-            border: Border(
-              left: BorderSide(color: sideColor, width: 3),
+    final row = Container(
+      margin: EdgeInsets.only(bottom: 1.5.h),
+      padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 9.h),
+      decoration: BoxDecoration(
+        color: sideColor.withValues(alpha: 0.06),
+        border: Border(
+          left: BorderSide(color: sideColor, width: 3),
+        ),
+      ),
+      child: Row(
+        children: [
+          // Dot
+          Container(
+            width: 6.r,
+            height: 6.r,
+            decoration: BoxDecoration(
+              color: sideColor,
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(
+                    color: sideColor.withValues(alpha: 0.5), blurRadius: 4)
+              ],
             ),
           ),
-          child: Row(
-            children: [
-              // Dot
-              Container(
-                width: 6.r,
-                height: 6.r,
+          SizedBox(width: 8.w),
+          // Symbol
+          Expanded(
+            flex: 3,
+            child: Text(
+              t.symbol,
+              style: TextStyle(
+                color: AppColors.textPrimary,
+                fontSize: 12.sp,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+          // Side badge
+          Expanded(
+            flex: 3,
+            child: Center(
+              child: Container(
+                padding:
+                    EdgeInsets.symmetric(horizontal: 8.w, vertical: 2.h),
                 decoration: BoxDecoration(
-                  color: sideColor,
-                  shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                        color: sideColor.withValues(alpha: 0.5), blurRadius: 4)
-                  ],
+                  color: sideColor.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(4.r),
                 ),
-              ),
-              SizedBox(width: 8.w),
-              // Symbol
-              Expanded(
-                flex: 3,
                 child: Text(
-                  t.symbol,
-                  style: TextStyle(
-                    color: AppColors.textPrimary,
-                    fontSize: 12.sp,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ),
-              // Side badge
-              Expanded(
-                flex: 3,
-                child: Center(
-                  child: Container(
-                    padding:
-                        EdgeInsets.symmetric(horizontal: 8.w, vertical: 2.h),
-                    decoration: BoxDecoration(
-                      color: sideColor.withValues(alpha: 0.15),
-                      borderRadius: BorderRadius.circular(4.r),
-                    ),
-                    child: Text(
-                      sideLabel,
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: sideColor,
-                        fontSize: 9.sp,
-                        fontWeight: FontWeight.w900,
-                        letterSpacing: 0.5,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-              // Price
-              Expanded(
-                flex: 4,
-                child: Text(
-                  t.price,
+                  sideLabel,
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     color: sideColor,
-                    fontSize: 12.sp,
-                    fontWeight: FontWeight.w700,
-                    fontFeatures: const [FontFeature.tabularFigures()],
-                  ),
-                ),
-              ),
-              // Size
-              Expanded(
-                flex: 3,
-                child: Text(
-                  t.size,
-                  textAlign: TextAlign.end,
-                  style: TextStyle(
-                    color: AppColors.textSecondary,
-                    fontSize: 11.sp,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-              // Time
-              Expanded(
-                flex: 2,
-                child: Text(
-                  t.time,
-                  textAlign: TextAlign.end,
-                  style: TextStyle(
-                    color: AppColors.textHint,
                     fontSize: 9.sp,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 0.5,
                   ),
                 ),
               ),
-            ],
+            ),
           ),
-        ),
+          // Price
+          Expanded(
+            flex: 4,
+            child: Text(
+              t.price,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: sideColor,
+                fontSize: 12.sp,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+          // Size
+          Expanded(
+            flex: 3,
+            child: Text(
+              t.size,
+              textAlign: TextAlign.end,
+              style: TextStyle(
+                color: AppColors.textSecondary,
+                fontSize: 11.sp,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          // Time
+          Expanded(
+            flex: 2,
+            child: Text(
+              t.time,
+              textAlign: TextAlign.end,
+              style: TextStyle(
+                color: AppColors.textHint,
+                fontSize: 9.sp,
+              ),
+            ),
+          ),
+        ],
       ),
+    );
+
+    if (!isFirst) return row;
+    return AnimatedOpacity(
+      opacity: 1.0,
+      duration: const Duration(milliseconds: 280),
+      child: row,
     );
   }
 
   @override
   Widget build(BuildContext context) {
     super.build(context);
-    return AnimatedList(
-      key: _listKey,
-      initialItemCount: _trades.length,
-      itemBuilder: (context, index, animation) {
-        if (index >= _trades.length) return const SizedBox.shrink();
-        return _buildRow(_trades[index], animation);
-      },
+    return ListView.builder(
+      itemCount: _trades.length,
+      itemBuilder: (context, index) =>
+          _buildRow(_trades[index], isFirst: index == 0),
     );
   }
 }
