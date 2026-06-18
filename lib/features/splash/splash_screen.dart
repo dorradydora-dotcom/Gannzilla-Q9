@@ -7,6 +7,7 @@ import '../auth/controllers/auth_controller.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/app_strings.dart';
 import '../../core/widgets/gannzilla_progress_bar.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -182,18 +183,18 @@ class _SplashScreenState extends State<SplashScreen>
                   child: SlideTransition(
                     position: _textSlide,
                     child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 15.0),
+                      padding: EdgeInsets.symmetric(horizontal: 15.w),
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           GannZillaProgressBar(
                             duration: const Duration(milliseconds: 3800),
                           ),
-                          const SizedBox(height: 2.0),
+                          SizedBox(height: 2.h),
 
                           // Status message
                           SizedBox(
-                            height: 15.0,
+                            height: 15.h,
                             child: AnimatedSwitcher(
                               duration: const Duration(milliseconds: 300),
                               transitionBuilder:
@@ -214,7 +215,7 @@ class _SplashScreenState extends State<SplashScreen>
                                 key: ValueKey<String>(_loadingStatus),
                                 textAlign: TextAlign.center,
                                 style: TextStyle(
-                                  fontSize: 12.0,
+                                  fontSize: 12.sp,
                                   color: AppColors.textSecondary,
                                   fontWeight: FontWeight.w500,
                                   letterSpacing: 0.4,
@@ -227,7 +228,7 @@ class _SplashScreenState extends State<SplashScreen>
                     ),
                   ),
                 ),
-                const SizedBox(height: 40.0),
+                SizedBox(height: 40.h),
               ],
             ),
           ),

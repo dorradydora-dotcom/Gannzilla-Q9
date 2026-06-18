@@ -108,7 +108,12 @@ class _RegisterScreenState extends State<RegisterScreen>
                   child: BackdropFilter(
                     filter: ImageFilter.blur(sigmaX: 25, sigmaY: 25),
                     child: Container(
-                      padding: EdgeInsets.fromLTRB(24.w, 12.h, 24.w, 28.h),
+                      padding: EdgeInsets.fromLTRB(
+                        24.w, 
+                        12.h, 
+                        24.w, 
+                        28.h + MediaQuery.of(context).padding.bottom,
+                      ),
                       decoration: BoxDecoration(
                         color: Colors.black.withValues(alpha: 0.82),
                         border: Border(
